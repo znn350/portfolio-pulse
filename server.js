@@ -56,6 +56,8 @@ const allowedQuoteTypes = new Set([
   "MONEYMARKET",
 ]);
 
+const fundLikeQuoteTypes = new Set(["ETF", "MUTUALFUND", "MONEYMARKET"]);
+
 const defaultAppState = {
   selectedPortfolioId: "core",
   portfolios: [
@@ -99,6 +101,15 @@ function toNumber(value) {
 
 function normalizeSymbol(symbol) {
   return String(symbol || "").trim().toUpperCase();
+}
+
+function normalizeYahooYield(value) {
+  const numeric = toNumber(value);
+  if (numeric == null) {
+    return null;
+  }
+
+  return numeric > 1 ? numeric / 100 : numeric;
 }
 
 function getDisplayName(result) {
@@ -335,26 +346,35 @@ async function getYahooQuoteSnapshot(symbol) {
       toNumber(quote.dividendRate) ??
       0,
     dividendYield:
-      toNumber(quote.trailingAnnualDividendYield) ??
-      toNumber(quote.dividendYield) ??
+      normalizeYahooYield(quote.trailingAnnualDividendYield) ??
+      normalizeYahooYield(quote.dividendYield) ??
       0,
   };
 }
 
 async function getYahooDividendSnapshot(symbol) {
   const quote = await yahooFinance.quote(symbol);
+  const quoteType = String(quote.quoteType || "").trim().toUpperCase();
   const fallbackRate =
     toNumber(quote.trailingAnnualDividendRate) ??
     toNumber(quote.dividendRate) ??
     0;
   const fallbackYield =
-    toNumber(quote.trailingAnnualDividendYield) ??
-    toNumber(quote.dividendYield) ??
+    normalizeYahooYield(quote.trailingAnnualDividendYield) ??
+    normalizeYahooYield(quote.dividendYield) ??
     0;
   const fallbackExDividendDate =
     quote.exDividendDate instanceof Date
       ? quote.exDividendDate.toISOString()
       : null;
+
+  if (fundLikeQuoteTypes.has(quoteType) && fallbackYield > 0) {
+    return {
+      dividendRate: fallbackRate,
+      dividendYield: fallbackYield,
+      exDividendDate: fallbackExDividendDate,
+    };
+  }
 
   try {
     const period1 = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
