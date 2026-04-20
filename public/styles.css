@@ -272,16 +272,6 @@ textarea {
   padding: 20px;
 }
 
-.stat-card.positive {
-  background: linear-gradient(180deg, rgba(14, 122, 100, 0.12) 0%, rgba(255, 251, 246, 0.94) 100%);
-  border-color: rgba(14, 122, 100, 0.22);
-}
-
-.stat-card.negative {
-  background: linear-gradient(180deg, rgba(178, 70, 58, 0.12) 0%, rgba(255, 251, 246, 0.94) 100%);
-  border-color: rgba(178, 70, 58, 0.24);
-}
-
 .stat-card span {
   color: var(--muted);
   display: block;
