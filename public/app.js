@@ -42,6 +42,7 @@ const elements = {
   totalReturnCard: document.querySelector("#total-return-card"),
   annualDividend: document.querySelector("#annual-dividend"),
   holdingForm: document.querySelector("#holding-form"),
+  toggleHoldingFormBtn: document.querySelector("#toggle-holding-form-btn"),
   symbolInput: document.querySelector("#symbol-input"),
   searchResults: document.querySelector("#search-results"),
   refreshBtn: document.querySelector("#refresh-btn"),
@@ -62,6 +63,7 @@ let selectedSearchResult = null;
 let saveTimer = null;
 let isHydratingFromServer = false;
 let storageMode = "";
+let isHoldingFormOpen = false;
 
 function loadState() {
   try {
@@ -190,6 +192,27 @@ function renderSummary() {
 function setSaveStatus(message, isError = false) {
   elements.saveStatus.textContent = message;
   elements.saveStatus.className = isError ? "save-status negative" : "muted save-status";
+}
+
+function syncHoldingFormVisibility() {
+  elements.holdingForm.classList.toggle("hidden", !isHoldingFormOpen);
+  elements.toggleHoldingFormBtn.setAttribute("aria-expanded", String(isHoldingFormOpen));
+  elements.toggleHoldingFormBtn.textContent = isHoldingFormOpen ? "Hide" : "Show";
+}
+
+function setHoldingFormOpen(nextOpen) {
+  isHoldingFormOpen = nextOpen;
+  syncHoldingFormVisibility();
+
+  if (isHoldingFormOpen) {
+    window.requestAnimationFrame(() => {
+      elements.symbolInput.focus();
+    });
+  }
+}
+
+function toggleHoldingForm() {
+  setHoldingFormOpen(!isHoldingFormOpen);
 }
 
 async function readErrorMessage(response, fallbackMessage) {
@@ -326,6 +349,7 @@ function upsertHolding(holding) {
   }
 
   saveState();
+  setHoldingFormOpen(false);
 }
 
 function removeHolding(symbol) {
@@ -526,6 +550,8 @@ elements.symbolInput.addEventListener("input", (event) => {
 elements.refreshBtn.addEventListener("click", refreshSnapshot);
 elements.newPortfolioBtn.addEventListener("click", addPortfolio);
 elements.deletePortfolioBtn.addEventListener("click", deleteSelectedPortfolio);
+elements.toggleHoldingFormBtn.addEventListener("click", toggleHoldingForm);
 
+syncHoldingFormVisibility();
 render();
 loadStateFromServer();

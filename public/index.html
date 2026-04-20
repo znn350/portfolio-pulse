@@ -37,8 +37,17 @@
         <section class="panel">
           <div class="panel-heading">
             <h2>Add Holding</h2>
+            <button
+              id="toggle-holding-form-btn"
+              class="ghost-button"
+              type="button"
+              aria-expanded="false"
+              aria-controls="holding-form"
+            >
+              Show
+            </button>
           </div>
-          <form id="holding-form" class="holding-form">
+          <form id="holding-form" class="holding-form hidden">
             <label>
               Symbol
               <input id="symbol-input" name="symbol" required placeholder="AAPL or VTSAX" />

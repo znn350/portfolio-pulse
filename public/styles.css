@@ -107,6 +107,11 @@ textarea {
   font-size: 1.1rem;
 }
 
+.panel-heading .ghost-button[aria-controls="holding-form"] {
+  padding-inline: 14px;
+  min-width: 78px;
+}
+
 .portfolio-list {
   display: grid;
   gap: 10px;
@@ -164,6 +169,10 @@ textarea {
   display: grid;
   gap: 12px;
   margin-top: 12px;
+}
+
+.holding-form.hidden {
+  display: none;
 }
 
 .holding-form label {
