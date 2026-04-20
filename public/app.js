@@ -33,6 +33,7 @@ const elements = {
   portfolioName: document.querySelector("#portfolio-name"),
   portfolioMeta: document.querySelector("#portfolio-meta"),
   providerBanner: document.querySelector("#provider-banner"),
+  saveStatus: document.querySelector("#save-status"),
   holdingsTable: document.querySelector("#holdings-table"),
   refreshedAt: document.querySelector("#refreshed-at"),
   totalValue: document.querySelector("#total-value"),
@@ -56,6 +57,8 @@ let lastSnapshot = {
 };
 let searchTimer = null;
 let selectedSearchResult = null;
+let saveTimer = null;
+let isHydratingFromServer = false;
 
 function loadState() {
   try {
@@ -72,6 +75,10 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(storageKey, JSON.stringify(state));
+  if (isHydratingFromServer) {
+    return;
+  }
+  scheduleServerSave();
 }
 
 function getSelectedPortfolio() {
@@ -166,6 +173,11 @@ function renderSummary() {
   elements.refreshedAt.textContent = lastSnapshot.refreshedAt
     ? `Last refresh ${new Date(lastSnapshot.refreshedAt).toLocaleTimeString()}`
     : "Not refreshed yet";
+}
+
+function setSaveStatus(message, isError = false) {
+  elements.saveStatus.textContent = message;
+  elements.saveStatus.className = isError ? "save-status negative" : "muted save-status";
 }
 
 function renderHoldings() {
@@ -346,6 +358,72 @@ async function refreshSnapshot() {
   }
 }
 
+async function pushStateToServer() {
+  try {
+    setSaveStatus("Saving portfolios...");
+    const response = await fetch("/api/app-state", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state),
+    });
+
+    if (!response.ok) {
+      throw new Error("Save request failed");
+    }
+
+    const payload = await response.json();
+    state = payload.state;
+    localStorage.setItem(storageKey, JSON.stringify(state));
+    setSaveStatus(
+      payload.savedAt
+        ? `Saved ${new Date(payload.savedAt).toLocaleTimeString()}`
+        : "Saved"
+    );
+  } catch (error) {
+    console.error(error);
+    setSaveStatus("Save failed. Changes are only in this browser right now.", true);
+  }
+}
+
+function scheduleServerSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    pushStateToServer();
+  }, 250);
+}
+
+async function loadStateFromServer() {
+  try {
+    const response = await fetch("/api/app-state");
+    if (!response.ok) {
+      throw new Error("Unable to load saved state");
+    }
+
+    const payload = await response.json();
+    isHydratingFromServer = true;
+    state = payload.state;
+    localStorage.setItem(storageKey, JSON.stringify(state));
+    lastSnapshot = {
+      holdings: [],
+      summary: {},
+      dataProviders: [],
+      refreshedAt: null,
+    };
+    render();
+    setSaveStatus(
+      payload.savedAt
+        ? `Loaded shared save from ${new Date(payload.savedAt).toLocaleString()}`
+        : "Loaded shared save"
+    );
+  } catch (error) {
+    console.error(error);
+    setSaveStatus("Using browser-only data. Server save is unavailable.", true);
+  } finally {
+    isHydratingFromServer = false;
+    refreshSnapshot();
+  }
+}
+
 async function searchSymbols(query) {
   if (query.trim().length < 2) {
     elements.searchResults.innerHTML = "";
@@ -427,4 +505,4 @@ elements.newPortfolioBtn.addEventListener("click", addPortfolio);
 elements.deletePortfolioBtn.addEventListener("click", deleteSelectedPortfolio);
 
 render();
-refreshSnapshot();
+loadStateFromServer();

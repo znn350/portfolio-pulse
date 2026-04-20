@@ -217,6 +217,11 @@ textarea {
   font-size: 0.9rem;
 }
 
+.save-status {
+  margin: 12px 0 0;
+  font-size: 0.9rem;
+}
+
 .provider-banner.fallback {
   background: rgba(178, 70, 58, 0.12);
   color: var(--danger);

@@ -33,6 +33,8 @@ loadDotEnv();
 
 const app = express();
 const port = process.env.PORT || 3000;
+const dataDirectory = path.join(__dirname, "data");
+const stateFilePath = path.join(dataDirectory, "portfolio-state.json");
 
 const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey", "ripHistorical"],
@@ -48,6 +50,34 @@ const allowedQuoteTypes = new Set([
   "INDEX",
   "MONEYMARKET",
 ]);
+
+const defaultAppState = {
+  selectedPortfolioId: "core",
+  portfolios: [
+    {
+      id: "core",
+      name: "Core Portfolio",
+      holdings: [
+        {
+          symbol: "AAPL",
+          quoteType: "EQUITY",
+          shares: 15,
+          costBasis: 190,
+          purchaseDate: "2024-01-15",
+          notes: "Example stock holding",
+        },
+        {
+          symbol: "VTSAX",
+          quoteType: "MUTUALFUND",
+          shares: 22.5,
+          costBasis: 119.5,
+          purchaseDate: "2023-07-10",
+          notes: "Example mutual fund holding",
+        },
+      ],
+    },
+  ],
+};
 
 function toNumber(value) {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -74,6 +104,82 @@ function getDisplayName(result) {
     result.name ||
     result.symbol
   );
+}
+
+function ensureDataStore() {
+  if (!fs.existsSync(dataDirectory)) {
+    fs.mkdirSync(dataDirectory, { recursive: true });
+  }
+
+  if (!fs.existsSync(stateFilePath)) {
+    fs.writeFileSync(
+      stateFilePath,
+      JSON.stringify(defaultAppState, null, 2),
+      "utf8"
+    );
+  }
+}
+
+function sanitizeHolding(holding) {
+  return {
+    symbol: normalizeSymbol(holding?.symbol),
+    quoteType: String(holding?.quoteType || "").trim().toUpperCase(),
+    shares: toNumber(holding?.shares) ?? 0,
+    costBasis: toNumber(holding?.costBasis) ?? 0,
+    purchaseDate: String(holding?.purchaseDate || "").trim(),
+    notes: String(holding?.notes || "").trim(),
+  };
+}
+
+function sanitizePortfolio(portfolio, index) {
+  const id = String(portfolio?.id || `portfolio-${index + 1}`).trim();
+  const holdings = Array.isArray(portfolio?.holdings)
+    ? portfolio.holdings
+        .map(sanitizeHolding)
+        .filter((holding) => Boolean(holding.symbol))
+    : [];
+
+  return {
+    id,
+    name: String(portfolio?.name || `Portfolio ${index + 1}`).trim() || `Portfolio ${index + 1}`,
+    holdings,
+  };
+}
+
+function sanitizeAppState(state) {
+  const portfolios = Array.isArray(state?.portfolios)
+    ? state.portfolios.map(sanitizePortfolio).filter((portfolio) => portfolio.id)
+    : [];
+
+  const safePortfolios = portfolios.length > 0 ? portfolios : defaultAppState.portfolios;
+  const selectedPortfolioId = safePortfolios.some(
+    (portfolio) => portfolio.id === state?.selectedPortfolioId
+  )
+    ? state.selectedPortfolioId
+    : safePortfolios[0].id;
+
+  return {
+    selectedPortfolioId,
+    portfolios: safePortfolios,
+  };
+}
+
+function readAppState() {
+  ensureDataStore();
+
+  try {
+    const raw = fs.readFileSync(stateFilePath, "utf8");
+    return sanitizeAppState(JSON.parse(raw));
+  } catch (error) {
+    return structuredClone(defaultAppState);
+  }
+}
+
+function writeAppState(state) {
+  ensureDataStore();
+  const safeState = sanitizeAppState(state);
+  fs.writeFileSync(stateFilePath, JSON.stringify(safeState, null, 2), "utf8");
+  return safeState;
 }
 
 async function searchSymbolsWithYahoo(query) {
@@ -231,6 +337,30 @@ function buildHoldingSnapshot(holding, marketData) {
     marketTime: marketData.marketTime || null,
   };
 }
+
+app.get("/api/app-state", (req, res) => {
+  res.json({
+    state: readAppState(),
+    savedAt: fs.existsSync(stateFilePath)
+      ? fs.statSync(stateFilePath).mtime.toISOString()
+      : null,
+  });
+});
+
+app.put("/api/app-state", (req, res) => {
+  try {
+    const savedState = writeAppState(req.body);
+    res.json({
+      state: savedState,
+      savedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Unable to save application state.",
+      details: error.message,
+    });
+  }
+});
 
 app.get("/api/search", async (req, res) => {
   const query = String(req.query.q || "").trim();
