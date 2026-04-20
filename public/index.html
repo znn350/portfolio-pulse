@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Portfolio Pulse</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <p class="eyebrow">Portfolio Tracker</p>
+          <h1>Portfolio Pulse</h1>
+          <p class="sidebar-copy">
+            Track stocks, mutual funds, and dividend income across independent
+            portfolios.
+          </p>
+        </div>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <h2>Portfolios</h2>
+            <button id="new-portfolio-btn" class="ghost-button" type="button">
+              New
+            </button>
+          </div>
+          <div id="portfolio-list" class="portfolio-list"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-heading">
+            <h2>Add Holding</h2>
+          </div>
+          <form id="holding-form" class="holding-form">
+            <label>
+              Symbol
+              <input id="symbol-input" name="symbol" required placeholder="AAPL or VTSAX" />
+            </label>
+            <div id="search-results" class="search-results"></div>
+            <label>
+              Shares
+              <input name="shares" type="number" min="0" step="0.0001" required />
+            </label>
+            <label>
+              Cost Basis / Share
+              <input name="costBasis" type="number" min="0" step="0.01" required />
+            </label>
+            <label>
+              Purchase Date
+              <input name="purchaseDate" type="date" />
+            </label>
+            <label>
+              Notes
+              <textarea name="notes" rows="3" placeholder="Brokerage, strategy, tax lot notes"></textarea>
+            </label>
+            <button class="primary-button" type="submit">Save Holding</button>
+          </form>
+        </section>
+      </aside>
+
+      <main class="content">
+        <section class="hero panel">
+          <div>
+            <p class="eyebrow">Live Overview</p>
+            <h2 id="portfolio-name">Loading...</h2>
+            <p id="portfolio-meta" class="muted"></p>
+            <div id="provider-banner" class="provider-banner hidden"></div>
+          </div>
+          <div class="hero-actions">
+            <button id="refresh-btn" class="primary-button" type="button">
+              Refresh Prices
+            </button>
+            <button id="delete-portfolio-btn" class="ghost-button danger" type="button">
+              Delete Portfolio
+            </button>
+          </div>
+        </section>
+
+        <section class="stats-grid">
+          <article class="stat-card panel">
+            <span>Total Value</span>
+            <strong id="total-value">$0.00</strong>
+          </article>
+          <article class="stat-card panel">
+            <span>Total Return</span>
+            <strong id="total-return">$0.00</strong>
+          </article>
+          <article class="stat-card panel">
+            <span>Annual Dividend Income</span>
+            <strong id="annual-dividend">$0.00</strong>
+          </article>
+        </section>
+
+        <section class="panel holdings-panel">
+          <div class="panel-heading">
+            <h2>Holdings</h2>
+            <p id="refreshed-at" class="muted">Not refreshed yet</p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Holding</th>
+                  <th>Price</th>
+                  <th>Day Change</th>
+                  <th>Day %</th>
+                  <th>Shares</th>
+                  <th>Market Value</th>
+                  <th>Total Return</th>
+                  <th>Total Return %</th>
+                  <th>Yield</th>
+                  <th>Annual Income</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="holdings-table"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <template id="portfolio-item-template">
+      <button type="button" class="portfolio-item">
+        <span class="portfolio-item-name"></span>
+        <span class="portfolio-item-count"></span>
+      </button>
+    </template>
+
+    <script src="/app.js"></script>
+  </body>
+  </html>
