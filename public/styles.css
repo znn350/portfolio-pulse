@@ -116,26 +116,48 @@ textarea {
 .portfolio-item {
   width: 100%;
   text-align: left;
-  border: 1px solid transparent;
-  background: var(--bg-strong);
+  border: 1px solid rgba(79, 55, 38, 0.08);
+  background: rgba(239, 228, 213, 0.72);
   border-radius: 18px;
   padding: 14px;
-  color: var(--text);
+  color: rgba(47, 36, 28, 0.74);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
-.portfolio-item:hover,
+.portfolio-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(14, 122, 100, 0.18);
+  background: #fff8ef;
+  color: var(--text);
+}
+
 .portfolio-item.active {
   transform: translateY(-1px);
-  border-color: rgba(14, 122, 100, 0.28);
-  background: #fff8ef;
+  border-color: rgba(14, 122, 100, 0.38);
+  background: linear-gradient(135deg, #0e7a64 0%, #156b7f 100%);
+  color: #fffdf9;
+  box-shadow: 0 14px 30px rgba(14, 122, 100, 0.22);
 }
 
 .portfolio-item-name {
   font-weight: 700;
+}
+
+.portfolio-item-count {
+  color: rgba(108, 90, 77, 0.86);
+  font-size: 0.9rem;
+}
+
+.portfolio-item.active .portfolio-item-count {
+  color: rgba(255, 253, 249, 0.82);
 }
 
 .holding-form {
