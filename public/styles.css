@@ -336,6 +336,7 @@ th {
   background: transparent;
   color: var(--danger);
   cursor: pointer;
+  padding: 0;
 }
 
 .search-results {
@@ -373,16 +374,176 @@ th {
 @media (max-width: 720px) {
   .content,
   .sidebar {
-    padding: 18px;
+    padding: 16px;
   }
 
   .hero {
-    padding: 22px;
+    padding: 20px;
     flex-direction: column;
     align-items: flex-start;
   }
 
+  .hero h2 {
+    line-height: 1.05;
+  }
+
+  .hero-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .hero-actions button,
+  .holding-form button,
+  .panel-heading .ghost-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .panel {
+    border-radius: 20px;
+  }
+
+  .sidebar .panel,
+  .holdings-panel,
+  .stat-card {
+    padding: 18px;
+  }
+
+  .portfolio-item {
+    padding: 12px 14px;
+  }
+
+  input,
+  textarea {
+    padding: 13px 14px;
+  }
+
+  .provider-banner,
+  .storage-banner {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
   .stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .panel-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .holdings-panel .panel-heading h2 + p {
+    margin: 4px 0 0;
+  }
+
+  .table-wrap {
+    overflow: visible;
+  }
+
+  table,
+  thead,
+  tbody,
+  tr,
+  th,
+  td {
+    display: block;
+    width: 100%;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tbody {
+    display: grid;
+    gap: 14px;
+  }
+
+  tr {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.72);
+    padding: 12px 14px;
+    box-shadow: 0 12px 28px rgba(72, 43, 20, 0.06);
+  }
+
+  td {
+    display: grid;
+    grid-template-columns: minmax(96px, 120px) 1fr;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    align-items: start;
+  }
+
+  td:last-child {
+    border-bottom: none;
+    padding-bottom: 2px;
+  }
+
+  td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  td[data-label="Holding"] {
+    grid-template-columns: 1fr;
+    padding-top: 2px;
+  }
+
+  td[data-label="Holding"]::before {
+    display: none;
+  }
+
+  td[data-label="Actions"] .table-action {
+    justify-self: start;
+    padding: 6px 0;
+    font-weight: 700;
+  }
+
+  .chip {
+    margin-top: 8px;
+    width: fit-content;
+  }
+
+  .empty-state {
+    padding: 18px 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .brand-block h1 {
+    font-size: 2rem;
+  }
+
+  .hero h2 {
+    font-size: 1.8rem;
+  }
+
+  .content,
+  .sidebar {
+    padding: 12px;
+  }
+
+  .sidebar .panel,
+  .hero,
+  .holdings-panel,
+  .stat-card {
+    padding: 16px;
+  }
+
+  td {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  td::before {
+    margin-bottom: 2px;
   }
 }

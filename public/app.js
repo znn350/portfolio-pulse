@@ -222,35 +222,35 @@ function renderHoldings() {
 
       return `
         <tr>
-          <td>
+          <td data-label="Holding">
             <div class="holding-symbol">${holding.symbol.toUpperCase()}</div>
             <div class="holding-name">${live?.name || holding.notes || "Waiting for live quote"}</div>
             <div class="chip">${live?.quoteType || "Holding"}</div>
           </td>
-          <td>
+          <td data-label="Price">
             <div>${live ? formatCurrency(live.price, live.currency) : "-"}</div>
             <div class="holding-name">${live?.exchange || "No exchange data"}</div>
           </td>
-          <td class="${live?.dayChange >= 0 ? "positive" : "negative"}">
+          <td data-label="Day Change" class="${live?.dayChange >= 0 ? "positive" : "negative"}">
             ${live?.dayChange != null ? formatCurrency(live.dayChange, live.currency) : "-"}
           </td>
-          <td class="${live?.dayChange >= 0 ? "positive" : "negative"}">
+          <td data-label="Day %" class="${live?.dayChange >= 0 ? "positive" : "negative"}">
             ${live?.dayChangePercent != null ? formatPercent((live.dayChangePercent || 0) / 100) : "-"}
           </td>
-          <td>${Number(holding.shares).toLocaleString()}</td>
-          <td>${live ? formatCurrency(live.marketValue, live.currency) : "-"}</td>
-          <td class="${returnClass}">
+          <td data-label="Shares">${Number(holding.shares).toLocaleString()}</td>
+          <td data-label="Market Value">${live ? formatCurrency(live.marketValue, live.currency) : "-"}</td>
+          <td data-label="Total Return" class="${returnClass}">
             ${live ? formatCurrency(live.totalReturn, live.currency) : "-"}
           </td>
-          <td class="${returnClass}">
+          <td data-label="Total Return %" class="${returnClass}">
             ${live ? formatPercent(live.totalReturnPercent) : "-"}
           </td>
-          <td>
+          <td data-label="Yield">
             <div>${yieldText}</div>
             ${dividendMeta}
           </td>
-          <td>${live ? formatCurrency(live.annualDividendIncome, live.currency) : "-"}</td>
-          <td>
+          <td data-label="Annual Income">${live ? formatCurrency(live.annualDividendIncome, live.currency) : "-"}</td>
+          <td data-label="Actions">
             <button class="table-action" type="button" data-symbol="${holding.symbol.toUpperCase()}">Remove</button>
           </td>
         </tr>
