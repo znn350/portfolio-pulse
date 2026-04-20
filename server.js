@@ -1,7 +1,7 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
-const { head, put } = require("@vercel/blob");
+const { get, put } = require("@vercel/blob");
 const YahooFinance = require("yahoo-finance2").default;
 
 function loadDotEnv() {
@@ -43,6 +43,7 @@ const yahooFinance = new YahooFinance({
 });
 
 const hasBlobStorage = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+const blobAccessModes = ["private", "public"];
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
@@ -186,50 +187,90 @@ function writeLocalAppState(state) {
   return safeState;
 }
 
-async function readBlobAppState() {
-  try {
-    const blob = await head(blobStatePath);
-    const response = await fetch(blob.url, { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`Blob read failed with ${response.status}`);
-    }
+function getBlobStorageMode(access) {
+  return access === "private" ? "Vercel Blob (Private)" : "Vercel Blob (Public)";
+}
 
-    const data = await response.json();
-    return {
-      state: sanitizeAppState(data),
-      savedAt: blob.uploadedAt
-        ? new Date(blob.uploadedAt).toISOString()
-        : null,
-    };
-  } catch (error) {
-    return {
-      state: structuredClone(defaultAppState),
-      savedAt: null,
-    };
+function shouldTryAlternateBlobAccess(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    message.includes("cannot use public access on a private store") ||
+    message.includes("cannot use private access on a public store") ||
+    message.includes("access")
+  );
+}
+
+async function readBlobAppState() {
+  let lastError = null;
+
+  for (const access of blobAccessModes) {
+    try {
+      const result = await get(blobStatePath, { access });
+      if (!result || result.statusCode === 404) {
+        return {
+          state: structuredClone(defaultAppState),
+          savedAt: null,
+          storageMode: getBlobStorageMode(access),
+        };
+      }
+
+      if (result.statusCode !== 200 || !result.stream) {
+        throw new Error(`Blob read failed with ${result.statusCode}`);
+      }
+
+      const raw = await new Response(result.stream).text();
+      const data = JSON.parse(raw);
+
+      return {
+        state: sanitizeAppState(data),
+        savedAt: result.blob?.uploadedAt
+          ? new Date(result.blob.uploadedAt).toISOString()
+          : null,
+        storageMode: getBlobStorageMode(access),
+      };
+    } catch (error) {
+      lastError = error;
+      if (!shouldTryAlternateBlobAccess(error)) {
+        break;
+      }
+    }
   }
+
+  throw lastError ?? new Error("Blob storage is unavailable.");
 }
 
 async function writeBlobAppState(state) {
   const safeState = sanitizeAppState(state);
-  const blob = await put(blobStatePath, JSON.stringify(safeState, null, 2), {
-    access: "public",
-    addRandomSuffix: false,
-    contentType: "application/json",
-  });
+  let lastError = null;
 
-  return {
-    state: safeState,
-    savedAt: blob.uploadedAt ? new Date(blob.uploadedAt).toISOString() : null,
-  };
+  for (const access of blobAccessModes) {
+    try {
+      const blob = await put(blobStatePath, JSON.stringify(safeState, null, 2), {
+        access,
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        contentType: "application/json",
+      });
+
+      return {
+        state: safeState,
+        savedAt: blob.uploadedAt ? new Date(blob.uploadedAt).toISOString() : null,
+        storageMode: getBlobStorageMode(access),
+      };
+    } catch (error) {
+      lastError = error;
+      if (!shouldTryAlternateBlobAccess(error)) {
+        break;
+      }
+    }
+  }
+
+  throw lastError ?? new Error("Blob storage is unavailable.");
 }
 
 async function readAppState() {
   if (hasBlobStorage) {
-    const payload = await readBlobAppState();
-    return {
-      ...payload,
-      storageMode: "Vercel Blob",
-    };
+    return readBlobAppState();
   }
 
   return {
@@ -243,11 +284,7 @@ async function readAppState() {
 
 async function writeAppState(state) {
   if (hasBlobStorage) {
-    const payload = await writeBlobAppState(state);
-    return {
-      ...payload,
-      storageMode: "Vercel Blob",
-    };
+    return writeBlobAppState(state);
   }
 
   const savedState = writeLocalAppState(state);

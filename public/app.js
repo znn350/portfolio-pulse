@@ -190,6 +190,15 @@ function setSaveStatus(message, isError = false) {
   elements.saveStatus.className = isError ? "save-status negative" : "muted save-status";
 }
 
+async function readErrorMessage(response, fallbackMessage) {
+  try {
+    const payload = await response.json();
+    return payload.details || payload.error || `${fallbackMessage} (${response.status})`;
+  } catch (error) {
+    return `${fallbackMessage} (${response.status})`;
+  }
+}
+
 function renderHoldings() {
   const selected = getSelectedPortfolio();
   const snapshotMap = new Map(
@@ -378,7 +387,7 @@ async function pushStateToServer() {
     });
 
     if (!response.ok) {
-      throw new Error("Save request failed");
+      throw new Error(await readErrorMessage(response, "Save request failed"));
     }
 
     const payload = await response.json();
@@ -392,7 +401,7 @@ async function pushStateToServer() {
     );
   } catch (error) {
     console.error(error);
-    setSaveStatus("Save failed. Changes are only in this browser right now.", true);
+    setSaveStatus(`Save failed. ${error.message}`, true);
   }
 }
 
@@ -407,7 +416,7 @@ async function loadStateFromServer() {
   try {
     const response = await fetch("/api/app-state");
     if (!response.ok) {
-      throw new Error("Unable to load saved state");
+      throw new Error(await readErrorMessage(response, "Unable to load saved state"));
     }
 
     const payload = await response.json();
@@ -429,7 +438,7 @@ async function loadStateFromServer() {
     );
   } catch (error) {
     console.error(error);
-    setSaveStatus("Using browser-only data. Server save is unavailable.", true);
+    setSaveStatus(`Using browser-only data. ${error.message}`, true);
   } finally {
     isHydratingFromServer = false;
     refreshSnapshot();
