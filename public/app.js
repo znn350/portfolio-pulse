@@ -39,6 +39,7 @@ const elements = {
   refreshedAt: document.querySelector("#refreshed-at"),
   totalValue: document.querySelector("#total-value"),
   totalReturn: document.querySelector("#total-return"),
+  totalReturnCard: document.querySelector("#total-return-card"),
   annualDividend: document.querySelector("#annual-dividend"),
   holdingForm: document.querySelector("#holding-form"),
   symbolInput: document.querySelector("#symbol-input"),
@@ -179,6 +180,7 @@ function renderSummary() {
     <span class="metric-secondary">${formatPercent(summary.totalReturnPercent)}</span>
   `;
   elements.totalReturn.className = "";
+  elements.totalReturnCard.className = `stat-card panel ${returnClass}`;
   elements.annualDividend.textContent = formatCurrency(summary.annualDividendIncome || 0);
   elements.refreshedAt.textContent = lastSnapshot.refreshedAt
     ? `Last refresh ${new Date(lastSnapshot.refreshedAt).toLocaleTimeString()}`
