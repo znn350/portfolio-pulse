@@ -176,10 +176,10 @@ function renderSummary() {
 
   elements.totalValue.textContent = formatCurrency(summary.totalMarketValue || 0);
   elements.totalReturn.innerHTML = `
-    <span class="metric-primary ${returnClass}">${formatCurrency(summary.totalReturn || 0)}</span>
-    <span class="metric-secondary ${returnClass}">${formatPercent(summary.totalReturnPercent)}</span>
+    <span class="metric-primary">${formatCurrency(summary.totalReturn || 0)}</span>
+    <span class="metric-secondary">${formatPercent(summary.totalReturnPercent)}</span>
   `;
-  elements.totalReturn.className = "";
+  elements.totalReturn.className = returnClass;
   elements.totalReturnCard.className = "stat-card panel";
   elements.annualDividend.textContent = formatCurrency(summary.annualDividendIncome || 0);
   elements.refreshedAt.textContent = lastSnapshot.refreshedAt
