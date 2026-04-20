@@ -33,6 +33,7 @@ const elements = {
   portfolioName: document.querySelector("#portfolio-name"),
   portfolioMeta: document.querySelector("#portfolio-meta"),
   providerBanner: document.querySelector("#provider-banner"),
+  storageBanner: document.querySelector("#storage-banner"),
   saveStatus: document.querySelector("#save-status"),
   holdingsTable: document.querySelector("#holdings-table"),
   refreshedAt: document.querySelector("#refreshed-at"),
@@ -59,6 +60,7 @@ let searchTimer = null;
 let selectedSearchResult = null;
 let saveTimer = null;
 let isHydratingFromServer = false;
+let storageMode = "";
 
 function loadState() {
   try {
@@ -157,6 +159,14 @@ function renderSummary() {
   } else {
     elements.providerBanner.className = "provider-banner hidden";
     elements.providerBanner.textContent = "";
+  }
+
+  if (storageMode) {
+    elements.storageBanner.className = "storage-banner";
+    elements.storageBanner.textContent = `Saving to ${storageMode}`;
+  } else {
+    elements.storageBanner.className = "storage-banner hidden";
+    elements.storageBanner.textContent = "";
   }
 
   const summary = lastSnapshot.summary || {};
@@ -373,6 +383,7 @@ async function pushStateToServer() {
 
     const payload = await response.json();
     state = payload.state;
+    storageMode = payload.storageMode || storageMode;
     localStorage.setItem(storageKey, JSON.stringify(state));
     setSaveStatus(
       payload.savedAt
@@ -402,6 +413,7 @@ async function loadStateFromServer() {
     const payload = await response.json();
     isHydratingFromServer = true;
     state = payload.state;
+    storageMode = payload.storageMode || "";
     localStorage.setItem(storageKey, JSON.stringify(state));
     lastSnapshot = {
       holdings: [],

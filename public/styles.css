@@ -217,6 +217,18 @@ textarea {
   font-size: 0.9rem;
 }
 
+.storage-banner {
+  margin-top: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(14, 122, 100, 0.12);
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
 .save-status {
   margin: 12px 0 0;
   font-size: 0.9rem;

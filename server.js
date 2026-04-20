@@ -1,6 +1,7 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const { head, put } = require("@vercel/blob");
 const YahooFinance = require("yahoo-finance2").default;
 
 function loadDotEnv() {
@@ -35,10 +36,13 @@ const app = express();
 const port = process.env.PORT || 3000;
 const dataDirectory = path.join(__dirname, "data");
 const stateFilePath = path.join(dataDirectory, "portfolio-state.json");
+const blobStatePath = "app-state/portfolio-state.json";
 
 const yahooFinance = new YahooFinance({
   suppressNotices: ["yahooSurvey", "ripHistorical"],
 });
+
+const hasBlobStorage = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(__dirname, "public")));
@@ -164,7 +168,7 @@ function sanitizeAppState(state) {
   };
 }
 
-function readAppState() {
+function readLocalAppState() {
   ensureDataStore();
 
   try {
@@ -175,11 +179,83 @@ function readAppState() {
   }
 }
 
-function writeAppState(state) {
+function writeLocalAppState(state) {
   ensureDataStore();
   const safeState = sanitizeAppState(state);
   fs.writeFileSync(stateFilePath, JSON.stringify(safeState, null, 2), "utf8");
   return safeState;
+}
+
+async function readBlobAppState() {
+  try {
+    const blob = await head(blobStatePath);
+    const response = await fetch(blob.url, { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Blob read failed with ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      state: sanitizeAppState(data),
+      savedAt: blob.uploadedAt
+        ? new Date(blob.uploadedAt).toISOString()
+        : null,
+    };
+  } catch (error) {
+    return {
+      state: structuredClone(defaultAppState),
+      savedAt: null,
+    };
+  }
+}
+
+async function writeBlobAppState(state) {
+  const safeState = sanitizeAppState(state);
+  const blob = await put(blobStatePath, JSON.stringify(safeState, null, 2), {
+    access: "public",
+    addRandomSuffix: false,
+    contentType: "application/json",
+  });
+
+  return {
+    state: safeState,
+    savedAt: blob.uploadedAt ? new Date(blob.uploadedAt).toISOString() : null,
+  };
+}
+
+async function readAppState() {
+  if (hasBlobStorage) {
+    const payload = await readBlobAppState();
+    return {
+      ...payload,
+      storageMode: "Vercel Blob",
+    };
+  }
+
+  return {
+    state: readLocalAppState(),
+    savedAt: fs.existsSync(stateFilePath)
+      ? fs.statSync(stateFilePath).mtime.toISOString()
+      : null,
+    storageMode: "Local File",
+  };
+}
+
+async function writeAppState(state) {
+  if (hasBlobStorage) {
+    const payload = await writeBlobAppState(state);
+    return {
+      ...payload,
+      storageMode: "Vercel Blob",
+    };
+  }
+
+  const savedState = writeLocalAppState(state);
+  return {
+    state: savedState,
+    savedAt: new Date().toISOString(),
+    storageMode: "Local File",
+  };
 }
 
 async function searchSymbolsWithYahoo(query) {
@@ -338,22 +414,22 @@ function buildHoldingSnapshot(holding, marketData) {
   };
 }
 
-app.get("/api/app-state", (req, res) => {
-  res.json({
-    state: readAppState(),
-    savedAt: fs.existsSync(stateFilePath)
-      ? fs.statSync(stateFilePath).mtime.toISOString()
-      : null,
-  });
+app.get("/api/app-state", async (req, res) => {
+  try {
+    const payload = await readAppState();
+    res.json(payload);
+  } catch (error) {
+    res.status(500).json({
+      error: "Unable to load application state.",
+      details: error.message,
+    });
+  }
 });
 
-app.put("/api/app-state", (req, res) => {
+app.put("/api/app-state", async (req, res) => {
   try {
-    const savedState = writeAppState(req.body);
-    res.json({
-      state: savedState,
-      savedAt: new Date().toISOString(),
-    });
+    const payload = await writeAppState(req.body);
+    res.json(payload);
   } catch (error) {
     res.status(500).json({
       error: "Unable to save application state.",
