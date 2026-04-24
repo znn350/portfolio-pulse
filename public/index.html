@@ -33,25 +33,76 @@
 
     <div id="app-shell" class="page-shell hidden">
       <aside class="sidebar">
-        <div class="brand-block">
-          <p class="eyebrow">Portfolio Tracker</p>
-          <h1>Portfolio Pulse</h1>
-          <p class="sidebar-copy">
-            Track stocks, mutual funds, and dividend income across independent
-            portfolios.
-          </p>
+        <div class="sidebar-main">
+          <div class="brand-block">
+            <p class="eyebrow">Portfolio Tracker</p>
+            <h1>Portfolio Pulse</h1>
+            <p class="sidebar-copy">
+              Track stocks, mutual funds, and dividend income across independent
+              portfolios.
+            </p>
+          </div>
+
+          <section class="panel profile-panel">
+            <div>
+              <p class="eyebrow">Signed In</p>
+              <h2 id="current-user-name">Loading...</h2>
+              <p id="current-user-meta" class="muted"></p>
+            </div>
+            <button id="logout-btn" class="ghost-button" type="button">Log Out</button>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Portfolios</h2>
+              <button id="new-portfolio-btn" class="ghost-button" type="button">
+                New
+              </button>
+            </div>
+            <div id="portfolio-list" class="portfolio-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <h2>Add Holding</h2>
+              <button
+                id="toggle-holding-form-btn"
+                class="ghost-button"
+                type="button"
+                aria-expanded="false"
+                aria-controls="holding-form"
+              >
+                Show
+              </button>
+            </div>
+            <form id="holding-form" class="holding-form hidden">
+              <label>
+                Symbol
+                <input id="symbol-input" name="symbol" required placeholder="AAPL or VTSAX" />
+              </label>
+              <div id="search-results" class="search-results"></div>
+              <label>
+                Shares
+                <input name="shares" type="number" min="0" step="0.0001" required />
+              </label>
+              <label>
+                Cost Basis / Share
+                <input name="costBasis" type="number" min="0" step="0.01" required />
+              </label>
+              <label>
+                Purchase Date
+                <input name="purchaseDate" type="date" />
+              </label>
+              <label>
+                Notes
+                <textarea name="notes" rows="3" placeholder="Brokerage, strategy, tax lot notes"></textarea>
+              </label>
+              <button class="primary-button" type="submit">Save Holding</button>
+            </form>
+          </section>
         </div>
 
-        <section class="panel profile-panel">
-          <div>
-            <p class="eyebrow">Signed In</p>
-            <h2 id="current-user-name">Loading...</h2>
-            <p id="current-user-meta" class="muted"></p>
-          </div>
-          <button id="logout-btn" class="ghost-button" type="button">Log Out</button>
-        </section>
-
-        <section id="admin-panel" class="panel hidden">
+        <section id="admin-panel" class="panel hidden sidebar-bottom">
           <div class="panel-heading">
             <h2>Access</h2>
             <button
@@ -92,55 +143,6 @@
             <p id="admin-status" class="form-status"></p>
             <div id="admin-users-list" class="admin-users-list"></div>
           </div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-heading">
-            <h2>Portfolios</h2>
-            <button id="new-portfolio-btn" class="ghost-button" type="button">
-              New
-            </button>
-          </div>
-          <div id="portfolio-list" class="portfolio-list"></div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-heading">
-            <h2>Add Holding</h2>
-            <button
-              id="toggle-holding-form-btn"
-              class="ghost-button"
-              type="button"
-              aria-expanded="false"
-              aria-controls="holding-form"
-            >
-              Show
-            </button>
-          </div>
-          <form id="holding-form" class="holding-form hidden">
-            <label>
-              Symbol
-              <input id="symbol-input" name="symbol" required placeholder="AAPL or VTSAX" />
-            </label>
-            <div id="search-results" class="search-results"></div>
-            <label>
-              Shares
-              <input name="shares" type="number" min="0" step="0.0001" required />
-            </label>
-            <label>
-              Cost Basis / Share
-              <input name="costBasis" type="number" min="0" step="0.01" required />
-            </label>
-            <label>
-              Purchase Date
-              <input name="purchaseDate" type="date" />
-            </label>
-            <label>
-              Notes
-              <textarea name="notes" rows="3" placeholder="Brokerage, strategy, tax lot notes"></textarea>
-            </label>
-            <button class="primary-button" type="submit">Save Holding</button>
-          </form>
         </section>
       </aside>
 

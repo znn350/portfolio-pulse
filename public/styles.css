@@ -114,10 +114,20 @@ textarea {
 }
 
 .sidebar {
+  display: flex;
+  flex-direction: column;
   padding: 28px 22px;
   border-right: 1px solid var(--line);
   background: rgba(255, 248, 241, 0.8);
   backdrop-filter: blur(16px);
+}
+
+.sidebar-main {
+  display: grid;
+}
+
+.sidebar-bottom {
+  margin-top: auto;
 }
 
 .content {
