@@ -83,6 +83,7 @@ let storageMode = "";
 let isHoldingFormOpen = false;
 let isAdminPanelOpen = false;
 let adminUsers = [];
+let draggedHoldingSymbol = null;
 
 function getUserStorageKey(user) {
   return user ? `portfolio-pulse-state:${user.id}` : "";
@@ -279,6 +280,34 @@ function toggleAdminPanel() {
   syncAdminPanelVisibility();
 }
 
+function reorderHoldings(draggedSymbol, targetSymbol, insertAfter = false) {
+  const portfolio = getSelectedPortfolio();
+  const sourceIndex = portfolio.holdings.findIndex(
+    (holding) => holding.symbol.toUpperCase() === draggedSymbol.toUpperCase()
+  );
+  const targetIndex = portfolio.holdings.findIndex(
+    (holding) => holding.symbol.toUpperCase() === targetSymbol.toUpperCase()
+  );
+
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    return;
+  }
+
+  const [movedHolding] = portfolio.holdings.splice(sourceIndex, 1);
+  let nextIndex = targetIndex;
+
+  if (sourceIndex < targetIndex) {
+    nextIndex -= 1;
+  }
+
+  if (insertAfter) {
+    nextIndex += 1;
+  }
+
+  portfolio.holdings.splice(nextIndex, 0, movedHolding);
+  saveState();
+}
+
 function renderAdminUsers() {
   if (!currentUser || currentUser.role !== "owner") {
     elements.adminUsersList.innerHTML = "";
@@ -424,11 +453,18 @@ function renderHoldings() {
       const yieldText = live ? formatPercent(live.dividendYield) : "-";
 
       return `
-        <tr>
+        <tr class="holding-row" data-holding-symbol="${holding.symbol.toUpperCase()}" draggable="true">
           <td data-label="Holding">
-            <div class="holding-symbol">${holding.symbol.toUpperCase()}</div>
-            <div class="holding-name">${live?.name || holding.notes || "Waiting for live quote"}</div>
-            <div class="chip">${live?.quoteType || "Holding"}</div>
+            <div class="holding-primary">
+              <button class="drag-handle" type="button" tabindex="-1" aria-hidden="true" title="Drag to reorder">
+                <span></span><span></span><span></span>
+              </button>
+              <div>
+                <div class="holding-symbol">${holding.symbol.toUpperCase()}</div>
+                <div class="holding-name">${live?.name || holding.notes || "Waiting for live quote"}</div>
+                <div class="chip">${live?.quoteType || "Holding"}</div>
+              </div>
+            </div>
           </td>
           <td data-label="Price">
             <div>${live ? formatCurrency(live.price, live.currency) : "-"}</div>
@@ -463,6 +499,66 @@ function renderHoldings() {
 
   elements.holdingsTable.querySelectorAll("[data-symbol]").forEach((button) => {
     button.addEventListener("click", () => removeHolding(button.dataset.symbol));
+  });
+
+  elements.holdingsTable.querySelectorAll(".holding-row").forEach((row) => {
+    row.addEventListener("dragstart", (event) => {
+      draggedHoldingSymbol = row.dataset.holdingSymbol;
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", draggedHoldingSymbol);
+      }
+      row.classList.add("dragging");
+    });
+
+    row.addEventListener("dragend", () => {
+      draggedHoldingSymbol = null;
+      elements.holdingsTable
+        .querySelectorAll(".holding-row")
+        .forEach((holdingRow) => {
+          holdingRow.classList.remove("dragging", "drag-target-before", "drag-target-after");
+        });
+    });
+
+    row.addEventListener("dragover", (event) => {
+      if (!draggedHoldingSymbol || draggedHoldingSymbol === row.dataset.holdingSymbol) {
+        return;
+      }
+
+      event.preventDefault();
+      const bounds = row.getBoundingClientRect();
+      const insertAfter = event.clientY > bounds.top + bounds.height / 2;
+
+      elements.holdingsTable
+        .querySelectorAll(".holding-row")
+        .forEach((holdingRow) => {
+          if (holdingRow !== row) {
+            holdingRow.classList.remove("drag-target-before", "drag-target-after");
+          }
+        });
+
+      row.classList.toggle("drag-target-before", !insertAfter);
+      row.classList.toggle("drag-target-after", insertAfter);
+    });
+
+    row.addEventListener("dragleave", (event) => {
+      if (!row.contains(event.relatedTarget)) {
+        row.classList.remove("drag-target-before", "drag-target-after");
+      }
+    });
+
+    row.addEventListener("drop", (event) => {
+      if (!draggedHoldingSymbol || draggedHoldingSymbol === row.dataset.holdingSymbol) {
+        return;
+      }
+
+      event.preventDefault();
+      const bounds = row.getBoundingClientRect();
+      const insertAfter = event.clientY > bounds.top + bounds.height / 2;
+      reorderHoldings(draggedHoldingSymbol, row.dataset.holdingSymbol, insertAfter);
+      render();
+      refreshSnapshot();
+    });
   });
 }
 

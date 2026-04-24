@@ -456,6 +456,70 @@ th {
   font-weight: 700;
 }
 
+.holding-primary {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.holding-row {
+  transition:
+    box-shadow 0.18s ease,
+    transform 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.holding-row.dragging {
+  opacity: 0.5;
+}
+
+.holding-row.drag-target-before td:first-child,
+.holding-row.drag-target-after td:first-child {
+  position: relative;
+}
+
+.holding-row.drag-target-before td:first-child::before,
+.holding-row.drag-target-after td:first-child::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.holding-row.drag-target-before td:first-child::before {
+  top: -2px;
+}
+
+.holding-row.drag-target-after td:first-child::after {
+  bottom: -2px;
+}
+
+.drag-handle {
+  display: inline-grid;
+  gap: 3px;
+  margin-top: 2px;
+  padding: 6px 4px;
+  border: none;
+  background: transparent;
+  cursor: grab;
+}
+
+.drag-handle span {
+  display: block;
+  width: 14px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(108, 90, 77, 0.7);
+}
+
+.holding-row.dragging .drag-handle,
+.holding-row:active .drag-handle {
+  cursor: grabbing;
+}
+
 .holding-name {
   color: var(--muted);
   font-size: 0.92rem;
@@ -692,6 +756,10 @@ th {
   .chip {
     margin-top: 8px;
     width: fit-content;
+  }
+
+  .holding-primary {
+    gap: 10px;
   }
 
   .empty-state {
