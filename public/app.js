@@ -282,30 +282,104 @@ function toggleAdminPanel() {
 
 function reorderHoldings(draggedSymbol, targetSymbol, insertAfter = false) {
   const portfolio = getSelectedPortfolio();
-  const sourceIndex = portfolio.holdings.findIndex(
-    (holding) => holding.symbol.toUpperCase() === draggedSymbol.toUpperCase()
-  );
-  const targetIndex = portfolio.holdings.findIndex(
-    (holding) => holding.symbol.toUpperCase() === targetSymbol.toUpperCase()
+  const draggedKey = draggedSymbol.toUpperCase();
+  const targetKey = targetSymbol.toUpperCase();
+  const draggedLots = portfolio.holdings.filter(
+    (holding) => holding.symbol.toUpperCase() === draggedKey
   );
 
-  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+  if (!draggedLots.length || draggedKey === targetKey) {
     return;
   }
 
-  const [movedHolding] = portfolio.holdings.splice(sourceIndex, 1);
-  let nextIndex = targetIndex;
+  const remainingLots = portfolio.holdings.filter(
+    (holding) => holding.symbol.toUpperCase() !== draggedKey
+  );
+  const targetIndex = remainingLots.findIndex(
+    (holding) => holding.symbol.toUpperCase() === targetKey
+  );
 
-  if (sourceIndex < targetIndex) {
-    nextIndex -= 1;
+  if (targetIndex < 0) {
+    return;
   }
 
+  let insertionIndex = targetIndex;
   if (insertAfter) {
-    nextIndex += 1;
+    insertionIndex = targetIndex + 1;
+    while (
+      insertionIndex < remainingLots.length &&
+      remainingLots[insertionIndex].symbol.toUpperCase() === targetKey
+    ) {
+      insertionIndex += 1;
+    }
   }
 
-  portfolio.holdings.splice(nextIndex, 0, movedHolding);
+  remainingLots.splice(insertionIndex, 0, ...draggedLots);
+  portfolio.holdings = remainingLots;
   saveState();
+}
+
+function getHoldingGroups(holdings) {
+  const groups = [];
+  const bySymbol = new Map();
+
+  holdings.forEach((holding) => {
+    const symbol = String(holding.symbol || "").trim().toUpperCase();
+    if (!symbol) {
+      return;
+    }
+
+    let group = bySymbol.get(symbol);
+    if (!group) {
+      group = {
+        symbol,
+        quoteType: String(holding.quoteType || "").trim().toUpperCase(),
+        batches: [],
+        shares: 0,
+        totalCost: 0,
+        latestPurchaseDate: "",
+        latestNotes: "",
+      };
+      bySymbol.set(symbol, group);
+      groups.push(group);
+    }
+
+    group.batches.push(holding);
+    group.shares += Number(holding.shares) || 0;
+    group.totalCost += (Number(holding.shares) || 0) * (Number(holding.costBasis) || 0);
+
+    if (holding.purchaseDate && (!group.latestPurchaseDate || holding.purchaseDate > group.latestPurchaseDate)) {
+      group.latestPurchaseDate = holding.purchaseDate;
+      group.latestNotes = holding.notes || "";
+    } else if (!group.latestNotes && holding.notes) {
+      group.latestNotes = holding.notes;
+    }
+
+    if (!group.quoteType && holding.quoteType) {
+      group.quoteType = String(holding.quoteType || "").trim().toUpperCase();
+    }
+  });
+
+  return groups.map((group) => ({
+    ...group,
+    batchCount: group.batches.length,
+    costBasis: group.shares > 0 ? group.totalCost / group.shares : 0,
+  }));
+}
+
+function getPortfolioBatchCount(portfolio) {
+  return Array.isArray(portfolio?.holdings) ? portfolio.holdings.length : 0;
+}
+
+function getSnapshotRequestHoldings(holdings) {
+  return getHoldingGroups(holdings).map((group) => ({
+    symbol: group.symbol,
+    quoteType: group.quoteType,
+    shares: group.shares,
+    costBasis: group.costBasis,
+    purchaseDate: group.latestPurchaseDate,
+    notes: group.latestNotes,
+  }));
 }
 
 function renderAdminUsers() {
@@ -335,8 +409,10 @@ function renderAdminUsers() {
 
 function renderSummary() {
   const selected = getSelectedPortfolio();
+  const holdingGroups = getHoldingGroups(selected.holdings);
+  const batchCount = getPortfolioBatchCount(selected);
   elements.portfolioName.textContent = selected.name;
-  elements.portfolioMeta.textContent = `${selected.holdings.length} holdings across stocks and funds`;
+  elements.portfolioMeta.textContent = `${holdingGroups.length} holdings across ${batchCount} batches`;
 
   const providers = lastSnapshot.dataProviders || [];
   if (providers.length) {
@@ -435,33 +511,40 @@ async function authFetch(url, options = {}) {
 
 function renderHoldings() {
   const selected = getSelectedPortfolio();
+  const holdingGroups = getHoldingGroups(selected.holdings);
   const snapshotMap = new Map(
     (lastSnapshot.holdings || []).map((holding) => [holding.symbol, holding])
   );
 
-  if (!selected.holdings.length) {
+  if (!holdingGroups.length) {
     elements.holdingsTable.innerHTML =
-      '<tr><td colspan="11" class="empty-state">No holdings yet. Add a stock or mutual fund from the form on the left.</td></tr>';
+      '<tr><td colspan="11" class="empty-state">No holdings yet. Add a stock or mutual fund batch from the form on the left.</td></tr>';
     return;
   }
 
-  elements.holdingsTable.innerHTML = selected.holdings
-    .map((holding) => {
-      const live = snapshotMap.get(holding.symbol.toUpperCase());
+  elements.holdingsTable.innerHTML = holdingGroups
+    .map((holdingGroup) => {
+      const live = snapshotMap.get(holdingGroup.symbol.toUpperCase());
       const returnClass =
         (live?.totalReturn || 0) >= 0 ? "positive" : "negative";
       const yieldText = live ? formatPercent(live.dividendYield) : "-";
+      const batchLabel =
+        holdingGroup.batchCount === 1
+          ? "1 batch"
+          : `${holdingGroup.batchCount} batches`;
+      const holdingSubtext = holdingGroup.latestNotes || live?.name || "Waiting for live quote";
 
       return `
-        <tr class="holding-row" data-holding-symbol="${holding.symbol.toUpperCase()}" draggable="true">
+        <tr class="holding-row" data-holding-symbol="${holdingGroup.symbol.toUpperCase()}" draggable="true">
           <td data-label="Holding">
             <div class="holding-primary">
               <button class="drag-handle" type="button" tabindex="-1" aria-hidden="true" title="Drag to reorder">
                 <span></span><span></span><span></span>
               </button>
               <div>
-                <div class="holding-symbol">${holding.symbol.toUpperCase()}</div>
-                <div class="holding-name">${live?.name || holding.notes || "Waiting for live quote"}</div>
+                <div class="holding-symbol">${holdingGroup.symbol.toUpperCase()}</div>
+                <div class="holding-name">${holdingSubtext}</div>
+                <div class="holding-name">${batchLabel}${holdingGroup.latestPurchaseDate ? ` · Latest ${formatDate(holdingGroup.latestPurchaseDate)}` : ""}</div>
                 <div class="chip">${live?.quoteType || "Holding"}</div>
               </div>
             </div>
@@ -476,7 +559,7 @@ function renderHoldings() {
           <td data-label="Day %" class="${live?.dayChange >= 0 ? "positive" : "negative"}">
             ${live?.dayChangePercent != null ? formatPercent((live.dayChangePercent || 0) / 100) : "-"}
           </td>
-          <td data-label="Shares">${Number(holding.shares).toLocaleString()}</td>
+          <td data-label="Shares">${Number(holdingGroup.shares).toLocaleString()}</td>
           <td data-label="Market Value">${live ? formatCurrency(live.marketValue, live.currency) : "-"}</td>
           <td data-label="Total Return" class="${returnClass}">
             ${live ? formatCurrency(live.totalReturn, live.currency) : "-"}
@@ -616,17 +699,22 @@ function deleteSelectedPortfolio() {
   refreshSnapshot();
 }
 
-function upsertHolding(holding) {
+function addHoldingBatch(holding) {
   const portfolio = getSelectedPortfolio();
   const symbol = holding.symbol.toUpperCase();
-  const existingIndex = portfolio.holdings.findIndex(
-    (item) => item.symbol.toUpperCase() === symbol
-  );
 
-  if (existingIndex >= 0) {
-    portfolio.holdings[existingIndex] = { ...holding, symbol };
+  const batch = { ...holding, symbol };
+  const existingIndexes = portfolio.holdings.reduce((indexes, item, index) => {
+    if (item.symbol.toUpperCase() === symbol) {
+      indexes.push(index);
+    }
+    return indexes;
+  }, []);
+
+  if (existingIndexes.length > 0) {
+    portfolio.holdings.splice(existingIndexes[existingIndexes.length - 1] + 1, 0, batch);
   } else {
-    portfolio.holdings.unshift({ ...holding, symbol });
+    portfolio.holdings.unshift(batch);
   }
 
   saveState();
@@ -635,6 +723,23 @@ function upsertHolding(holding) {
 
 function removeHolding(symbol) {
   const portfolio = getSelectedPortfolio();
+  const matchingBatches = portfolio.holdings.filter(
+    (holding) => holding.symbol.toUpperCase() === symbol.toUpperCase()
+  );
+
+  if (!matchingBatches.length) {
+    return;
+  }
+
+  const confirmed = window.confirm(
+    matchingBatches.length === 1
+      ? `Remove ${symbol.toUpperCase()}?`
+      : `Remove all ${matchingBatches.length} batches of ${symbol.toUpperCase()}?`
+  );
+  if (!confirmed) {
+    return;
+  }
+
   portfolio.holdings = portfolio.holdings.filter(
     (holding) => holding.symbol.toUpperCase() !== symbol.toUpperCase()
   );
@@ -649,8 +754,9 @@ async function refreshSnapshot() {
   }
 
   const portfolio = getSelectedPortfolio();
+  const snapshotHoldings = getSnapshotRequestHoldings(portfolio.holdings);
 
-  if (!portfolio?.holdings?.length) {
+  if (!snapshotHoldings.length) {
     lastSnapshot = {
       holdings: [],
       summary: {
@@ -672,7 +778,7 @@ async function refreshSnapshot() {
   try {
     const response = await authFetch("/api/portfolio-snapshot", {
       method: "POST",
-      body: JSON.stringify({ holdings: portfolio.holdings }),
+      body: JSON.stringify({ holdings: snapshotHoldings }),
     });
 
     if (!response.ok) {
@@ -921,7 +1027,7 @@ elements.holdingForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const formData = new FormData(event.currentTarget);
 
-  upsertHolding({
+  addHoldingBatch({
     symbol: String(formData.get("symbol") || "").trim(),
     quoteType:
       selectedSearchResult &&
