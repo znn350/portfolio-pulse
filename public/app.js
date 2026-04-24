@@ -58,6 +58,9 @@ const elements = {
   totalReturnCard: document.querySelector("#total-return-card"),
   annualDividend: document.querySelector("#annual-dividend"),
   holdingForm: document.querySelector("#holding-form"),
+  holdingFormTitle: document.querySelector("#holding-form-title"),
+  saveHoldingBtn: document.querySelector("#save-holding-btn"),
+  cancelHoldingEditBtn: document.querySelector("#cancel-holding-edit-btn"),
   toggleHoldingFormBtn: document.querySelector("#toggle-holding-form-btn"),
   symbolInput: document.querySelector("#symbol-input"),
   searchResults: document.querySelector("#search-results"),
@@ -84,6 +87,7 @@ let isHoldingFormOpen = false;
 let isAdminPanelOpen = false;
 let adminUsers = [];
 let draggedHoldingSymbol = null;
+let editingHoldingSymbol = null;
 
 function getUserStorageKey(user) {
   return user ? `portfolio-pulse-state:${user.id}` : "";
@@ -255,6 +259,8 @@ function renderPortfolios() {
     fragment.querySelector(".portfolio-item-name").textContent = portfolio.name;
     fragment.querySelector(".portfolio-item-count").textContent = `${portfolio.holdings.length} holdings`;
     button.addEventListener("click", () => {
+      resetHoldingForm();
+      setHoldingFormOpen(false);
       state.selectedPortfolioId = portfolio.id;
       saveState();
       render();
@@ -387,6 +393,13 @@ function syncHoldingFormVisibility() {
   elements.holdingForm.classList.toggle("hidden", !isHoldingFormOpen);
   elements.toggleHoldingFormBtn.setAttribute("aria-expanded", String(isHoldingFormOpen));
   elements.toggleHoldingFormBtn.textContent = isHoldingFormOpen ? "Hide" : "Show";
+  elements.holdingFormTitle.textContent = editingHoldingSymbol
+    ? "Edit Holding"
+    : "Add Holding";
+  elements.saveHoldingBtn.textContent = editingHoldingSymbol
+    ? "Update Holding"
+    : "Save Holding";
+  elements.cancelHoldingEditBtn.classList.toggle("hidden", !editingHoldingSymbol);
 }
 
 function setHoldingFormOpen(nextOpen) {
@@ -402,6 +415,41 @@ function setHoldingFormOpen(nextOpen) {
 
 function toggleHoldingForm() {
   setHoldingFormOpen(!isHoldingFormOpen);
+}
+
+function resetHoldingForm() {
+  editingHoldingSymbol = null;
+  selectedSearchResult = null;
+  elements.holdingForm.reset();
+  elements.searchResults.innerHTML = "";
+  syncHoldingFormVisibility();
+}
+
+function startEditingHolding(symbol) {
+  const portfolio = getSelectedPortfolio();
+  const holding = portfolio.holdings.find(
+    (item) => item.symbol.toUpperCase() === symbol.toUpperCase()
+  );
+
+  if (!holding) {
+    return;
+  }
+
+  editingHoldingSymbol = holding.symbol.toUpperCase();
+  selectedSearchResult = holding.quoteType
+    ? {
+        symbol: holding.symbol.toUpperCase(),
+        quoteType: holding.quoteType,
+        name: "",
+      }
+    : null;
+
+  elements.holdingForm.elements.symbol.value = holding.symbol;
+  elements.holdingForm.elements.shares.value = holding.shares;
+  elements.holdingForm.elements.costBasis.value = holding.costBasis;
+  elements.holdingForm.elements.purchaseDate.value = holding.purchaseDate || "";
+  elements.holdingForm.elements.notes.value = holding.notes || "";
+  setHoldingFormOpen(true);
 }
 
 async function readErrorMessage(response, fallbackMessage) {
@@ -490,16 +538,27 @@ function renderHoldings() {
           </td>
           <td data-label="Annual Income">${live ? formatCurrency(live.annualDividendIncome, live.currency) : "-"}</td>
           <td data-label="Actions">
-            <button class="table-action" type="button" data-symbol="${holding.symbol.toUpperCase()}">Remove</button>
+            <div class="table-actions">
+              <button class="table-action edit-action" type="button" data-edit-symbol="${holding.symbol.toUpperCase()}">Edit</button>
+              <button class="table-action remove-action" type="button" data-remove-symbol="${holding.symbol.toUpperCase()}">Remove</button>
+            </div>
           </td>
         </tr>
       `;
     })
     .join("");
 
-  elements.holdingsTable.querySelectorAll("[data-symbol]").forEach((button) => {
-    button.addEventListener("click", () => removeHolding(button.dataset.symbol));
-  });
+  elements.holdingsTable
+    .querySelectorAll("[data-edit-symbol]")
+    .forEach((button) => {
+      button.addEventListener("click", () => startEditingHolding(button.dataset.editSymbol));
+    });
+
+  elements.holdingsTable
+    .querySelectorAll("[data-remove-symbol]")
+    .forEach((button) => {
+      button.addEventListener("click", () => removeHolding(button.dataset.removeSymbol));
+    });
 
   elements.holdingsTable.querySelectorAll(".holding-row").forEach((row) => {
     row.addEventListener("dragstart", (event) => {
@@ -563,6 +622,18 @@ function renderHoldings() {
 }
 
 function render() {
+  if (editingHoldingSymbol) {
+    const hasEditedHolding = getSelectedPortfolio().holdings.some(
+      (holding) => holding.symbol.toUpperCase() === editingHoldingSymbol
+    );
+
+    if (!hasEditedHolding) {
+      resetHoldingForm();
+    } else {
+      syncHoldingFormVisibility();
+    }
+  }
+
   renderPortfolios();
   renderAdminUsers();
   syncAdminPanelVisibility();
@@ -587,6 +658,8 @@ function addPortfolio() {
     holdings: [],
   };
 
+  resetHoldingForm();
+  setHoldingFormOpen(false);
   state.portfolios.push(portfolio);
   state.selectedPortfolioId = portfolio.id;
   saveState();
@@ -606,6 +679,8 @@ function deleteSelectedPortfolio() {
     return;
   }
 
+  resetHoldingForm();
+  setHoldingFormOpen(false);
   state.portfolios = state.portfolios.filter(
     (portfolio) => portfolio.id !== selected.id
   );
@@ -619,9 +694,19 @@ function deleteSelectedPortfolio() {
 function upsertHolding(holding) {
   const portfolio = getSelectedPortfolio();
   const symbol = holding.symbol.toUpperCase();
+  const originalSymbol = editingHoldingSymbol || symbol;
   const existingIndex = portfolio.holdings.findIndex(
-    (item) => item.symbol.toUpperCase() === symbol
+    (item) => item.symbol.toUpperCase() === originalSymbol
   );
+  const duplicateIndex = portfolio.holdings.findIndex(
+    (item, index) =>
+      index !== existingIndex && item.symbol.toUpperCase() === symbol
+  );
+
+  if (duplicateIndex >= 0) {
+    window.alert(`A holding for ${symbol} already exists in this portfolio.`);
+    return false;
+  }
 
   if (existingIndex >= 0) {
     portfolio.holdings[existingIndex] = { ...holding, symbol };
@@ -630,7 +715,9 @@ function upsertHolding(holding) {
   }
 
   saveState();
+  resetHoldingForm();
   setHoldingFormOpen(false);
+  return true;
 }
 
 function removeHolding(symbol) {
@@ -638,6 +725,10 @@ function removeHolding(symbol) {
   portfolio.holdings = portfolio.holdings.filter(
     (holding) => holding.symbol.toUpperCase() !== symbol.toUpperCase()
   );
+  if (editingHoldingSymbol === symbol.toUpperCase()) {
+    resetHoldingForm();
+    setHoldingFormOpen(false);
+  }
   saveState();
   render();
   refreshSnapshot();
@@ -921,7 +1012,7 @@ elements.holdingForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const formData = new FormData(event.currentTarget);
 
-  upsertHolding({
+  const didSave = upsertHolding({
     symbol: String(formData.get("symbol") || "").trim(),
     quoteType:
       selectedSearchResult &&
@@ -935,9 +1026,10 @@ elements.holdingForm.addEventListener("submit", async (event) => {
     notes: String(formData.get("notes") || "").trim(),
   });
 
-  event.currentTarget.reset();
-  selectedSearchResult = null;
-  elements.searchResults.innerHTML = "";
+  if (!didSave) {
+    return;
+  }
+
   render();
   await refreshSnapshot();
 });
@@ -960,6 +1052,10 @@ elements.refreshBtn.addEventListener("click", refreshSnapshot);
 elements.newPortfolioBtn.addEventListener("click", addPortfolio);
 elements.deletePortfolioBtn.addEventListener("click", deleteSelectedPortfolio);
 elements.toggleHoldingFormBtn.addEventListener("click", toggleHoldingForm);
+elements.cancelHoldingEditBtn.addEventListener("click", () => {
+  resetHoldingForm();
+  setHoldingFormOpen(false);
+});
 
 syncHoldingFormVisibility();
 render();

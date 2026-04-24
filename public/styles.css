@@ -311,6 +311,12 @@ textarea {
   font-size: 0.95rem;
 }
 
+.form-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 input,
 textarea {
   border: 1px solid var(--line);
@@ -571,9 +577,22 @@ th {
 .table-action {
   border: none;
   background: transparent;
-  color: var(--danger);
   cursor: pointer;
   padding: 0;
+}
+
+.table-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.edit-action {
+  color: var(--accent);
+}
+
+.remove-action {
+  color: var(--danger);
 }
 
 .search-results {
@@ -640,7 +659,7 @@ th {
   }
 
   .hero-actions button,
-  .holding-form button,
+  .form-actions button,
   .panel-heading .ghost-button {
     width: 100%;
     justify-content: center;
@@ -745,6 +764,10 @@ th {
 
   td[data-label="Holding"]::before {
     display: none;
+  }
+
+  td[data-label="Actions"] .table-actions {
+    gap: 14px;
   }
 
   td[data-label="Actions"] .table-action {

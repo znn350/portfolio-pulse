@@ -64,7 +64,7 @@
 
           <section class="panel">
             <div class="panel-heading">
-              <h2>Add Holding</h2>
+              <h2 id="holding-form-title">Add Holding</h2>
               <button
                 id="toggle-holding-form-btn"
                 class="ghost-button"
@@ -97,7 +97,10 @@
                 Notes
                 <textarea name="notes" rows="3" placeholder="Brokerage, strategy, tax lot notes"></textarea>
               </label>
-              <button class="primary-button" type="submit">Save Holding</button>
+              <div class="form-actions">
+                <button id="save-holding-btn" class="primary-button" type="submit">Save Holding</button>
+                <button id="cancel-holding-edit-btn" class="ghost-button hidden" type="button">Cancel</button>
+              </div>
             </form>
           </section>
         </div>
