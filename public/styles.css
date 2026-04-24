@@ -358,7 +358,100 @@ textarea {
   transform: translateY(-1px);
 }
 
+.market-strip {
+  padding: 22px;
+}
+
+.market-strip-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.market-strip-heading h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.market-strip-heading .muted {
+  margin: 0;
+  text-align: right;
+  font-size: 0.9rem;
+}
+
+.market-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.market-card {
+  display: grid;
+  gap: 8px;
+  min-height: 142px;
+  padding: 16px;
+  border: 1px solid rgba(79, 55, 38, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.market-card.loading {
+  color: var(--muted);
+}
+
+.market-card-top,
+.market-change {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.market-card-top > span:first-child {
+  font-weight: 700;
+}
+
+.market-card strong {
+  font-size: clamp(1.45rem, 2.3vw, 2rem);
+  line-height: 1;
+}
+
+.market-card small {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.market-mode {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.market-mode.live {
+  background: rgba(14, 122, 100, 0.13);
+  color: var(--accent);
+}
+
+.market-mode.future {
+  background: rgba(21, 107, 127, 0.13);
+  color: #156b7f;
+}
+
+.market-change {
+  justify-content: flex-start;
+  font-weight: 700;
+}
+
 .hero {
+  margin-top: 20px;
   padding: 28px;
   display: flex;
   justify-content: space-between;
@@ -622,6 +715,10 @@ th {
     grid-template-columns: 1fr;
   }
 
+  .market-overview {
+    grid-template-columns: 1fr;
+  }
+
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -648,6 +745,18 @@ th {
     align-items: flex-start;
   }
 
+  .market-strip {
+    padding: 18px;
+  }
+
+  .market-strip-heading {
+    flex-direction: column;
+  }
+
+  .market-strip-heading .muted {
+    text-align: left;
+  }
+
   .hero h2 {
     line-height: 1.05;
   }
@@ -670,6 +779,7 @@ th {
   }
 
   .sidebar .panel,
+  .market-strip,
   .holdings-panel,
   .stat-card {
     padding: 18px;
@@ -814,6 +924,7 @@ th {
 
   .sidebar .panel,
   .hero,
+  .market-strip,
   .holdings-panel,
   .stat-card {
     padding: 16px;

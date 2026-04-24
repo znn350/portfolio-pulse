@@ -51,6 +51,8 @@ const elements = {
   providerBanner: document.querySelector("#provider-banner"),
   storageBanner: document.querySelector("#storage-banner"),
   saveStatus: document.querySelector("#save-status"),
+  marketOverview: document.querySelector("#market-overview"),
+  marketRefreshedAt: document.querySelector("#market-refreshed-at"),
   holdingsTable: document.querySelector("#holdings-table"),
   refreshedAt: document.querySelector("#refreshed-at"),
   totalValue: document.querySelector("#total-value"),
@@ -76,6 +78,10 @@ let lastSnapshot = {
   holdings: [],
   summary: {},
   dataProviders: [],
+  refreshedAt: null,
+};
+let lastMarketSnapshot = {
+  items: [],
   refreshedAt: null,
 };
 let searchTimer = null;
@@ -128,6 +134,10 @@ function resetStateForSignedOutUser() {
     holdings: [],
     summary: {},
     dataProviders: [],
+    refreshedAt: null,
+  };
+  lastMarketSnapshot = {
+    items: [],
     refreshedAt: null,
   };
   storageMode = "";
@@ -222,6 +232,22 @@ function formatCurrency(value, currency = "USD") {
     currency,
     maximumFractionDigits: 2,
   }).format(value || 0);
+}
+
+function formatMarketNumber(value) {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value || 0);
+}
+
+function formatSignedMarketNumber(value) {
+  if (typeof value !== "number") {
+    return "-";
+  }
+
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${formatMarketNumber(value)}`;
 }
 
 function formatPercent(value) {
@@ -382,6 +408,58 @@ function renderSummary() {
   elements.refreshedAt.textContent = lastSnapshot.refreshedAt
     ? `Last refresh ${new Date(lastSnapshot.refreshedAt).toLocaleTimeString()}`
     : "Not refreshed yet";
+}
+
+function renderMarketOverview() {
+  const items = lastMarketSnapshot.items || [];
+
+  if (!items.length) {
+    elements.marketOverview.innerHTML = `
+      <article class="market-card loading">
+        <span>S&P 500</span>
+        <strong>-</strong>
+        <small>Waiting for market data</small>
+      </article>
+      <article class="market-card loading">
+        <span>Dow Jones</span>
+        <strong>-</strong>
+        <small>Waiting for market data</small>
+      </article>
+      <article class="market-card loading">
+        <span>Nasdaq</span>
+        <strong>-</strong>
+        <small>Waiting for market data</small>
+      </article>
+    `;
+    elements.marketRefreshedAt.textContent = "Loading market data...";
+    return;
+  }
+
+  elements.marketOverview.innerHTML = items
+    .map((item) => {
+      const changeClass = (item.dayChange || 0) >= 0 ? "positive" : "negative";
+      const modeClass = item.sourceType === "market" ? "live" : "future";
+
+      return `
+        <article class="market-card">
+          <div class="market-card-top">
+            <span>${item.label}</span>
+            <span class="market-mode ${modeClass}">${item.displayMode}</span>
+          </div>
+          <strong>${formatMarketNumber(item.price)}</strong>
+          <div class="market-change ${changeClass}">
+            <span>${formatSignedMarketNumber(item.dayChange)}</span>
+            <span>${item.dayChangePercent != null ? formatPercent((item.dayChangePercent || 0) / 100) : "-"}</span>
+          </div>
+          <small>${item.symbol}${item.marketTime ? ` updated ${new Date(item.marketTime).toLocaleTimeString()}` : ""}</small>
+        </article>
+      `;
+    })
+    .join("");
+
+  elements.marketRefreshedAt.textContent = lastMarketSnapshot.refreshedAt
+    ? `Last refresh ${new Date(lastMarketSnapshot.refreshedAt).toLocaleTimeString()}`
+    : "Market data loaded";
 }
 
 function setSaveStatus(message, isError = false) {
@@ -637,6 +715,7 @@ function render() {
   renderPortfolios();
   renderAdminUsers();
   syncAdminPanelVisibility();
+  renderMarketOverview();
   renderSummary();
   renderHoldings();
 }
@@ -778,6 +857,31 @@ async function refreshSnapshot() {
   }
 }
 
+async function refreshMarketOverview() {
+  if (!currentUser) {
+    return;
+  }
+
+  elements.marketRefreshedAt.textContent = "Refreshing market data...";
+
+  try {
+    const response = await authFetch("/api/market-overview");
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Market overview request failed"));
+    }
+
+    lastMarketSnapshot = await response.json();
+    renderMarketOverview();
+  } catch (error) {
+    console.error(error);
+    elements.marketRefreshedAt.textContent = "Market refresh failed. Try again.";
+  }
+}
+
+async function refreshAllSnapshots() {
+  await Promise.all([refreshMarketOverview(), refreshSnapshot()]);
+}
+
 async function pushStateToServer() {
   if (!currentUser) {
     return;
@@ -849,7 +953,7 @@ async function loadStateFromServer() {
     setSaveStatus(`Unable to load saved data. ${error.message}`, true);
   } finally {
     isHydratingFromServer = false;
-    refreshSnapshot();
+    refreshAllSnapshots();
   }
 }
 
@@ -1048,7 +1152,7 @@ elements.symbolInput.addEventListener("input", (event) => {
   }, 250);
 });
 
-elements.refreshBtn.addEventListener("click", refreshSnapshot);
+elements.refreshBtn.addEventListener("click", refreshAllSnapshots);
 elements.newPortfolioBtn.addEventListener("click", addPortfolio);
 elements.deletePortfolioBtn.addEventListener("click", deleteSelectedPortfolio);
 elements.toggleHoldingFormBtn.addEventListener("click", toggleHoldingForm);

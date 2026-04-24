@@ -68,6 +68,27 @@ const allowedQuoteTypes = new Set([
 
 const fundLikeQuoteTypes = new Set(["ETF", "MUTUALFUND", "MONEYMARKET"]);
 
+const marketOverviewSymbols = [
+  {
+    id: "sp500",
+    label: "S&P 500",
+    marketSymbol: "^GSPC",
+    futureSymbol: "ES=F",
+  },
+  {
+    id: "dow",
+    label: "Dow Jones",
+    marketSymbol: "^DJI",
+    futureSymbol: "YM=F",
+  },
+  {
+    id: "nasdaq",
+    label: "Nasdaq",
+    marketSymbol: "^IXIC",
+    futureSymbol: "NQ=F",
+  },
+];
+
 const defaultAppState = {
   selectedPortfolioId: "core",
   portfolios: [
@@ -764,6 +785,48 @@ async function getYahooQuoteSnapshot(symbol) {
   };
 }
 
+async function getYahooMarketQuote(symbol) {
+  const quote = await yahooFinance.quote(symbol);
+  return {
+    symbol: quote.symbol || symbol,
+    name: getDisplayName(quote),
+    exchange: quote.fullExchangeName || quote.exchange || "",
+    currency: quote.currency || "USD",
+    price: toNumber(quote.regularMarketPrice) ?? toNumber(quote.navPrice) ?? 0,
+    dayChange: toNumber(quote.regularMarketChange),
+    dayChangePercent: toNumber(quote.regularMarketChangePercent),
+    marketState: String(quote.marketState || "").trim().toUpperCase(),
+    marketTime:
+      quote.regularMarketTime instanceof Date
+        ? quote.regularMarketTime.toISOString()
+        : null,
+  };
+}
+
+async function getMarketOverviewItem(config) {
+  const marketQuote = await getYahooMarketQuote(config.marketSymbol);
+  const useMarketQuote = marketQuote.marketState === "REGULAR";
+  const selectedQuote = useMarketQuote
+    ? marketQuote
+    : await getYahooMarketQuote(config.futureSymbol);
+
+  return {
+    id: config.id,
+    label: config.label,
+    sourceType: useMarketQuote ? "market" : "future",
+    displayMode: useMarketQuote ? "Real-time market" : "Futures",
+    marketState: marketQuote.marketState || selectedQuote.marketState || "UNKNOWN",
+    symbol: selectedQuote.symbol,
+    name: selectedQuote.name,
+    exchange: selectedQuote.exchange,
+    currency: selectedQuote.currency,
+    price: selectedQuote.price,
+    dayChange: selectedQuote.dayChange,
+    dayChangePercent: selectedQuote.dayChangePercent,
+    marketTime: selectedQuote.marketTime,
+  };
+}
+
 async function getYahooDividendSnapshot(symbol) {
   const quote = await yahooFinance.quote(symbol);
   const quoteType = String(quote.quoteType || "").trim().toUpperCase();
@@ -846,12 +909,13 @@ function buildHoldingSnapshot(holding, marketData) {
   const shares = toNumber(holding.shares) ?? 0;
   const costBasis = toNumber(holding.costBasis) ?? 0;
   const price = toNumber(marketData.price) ?? 0;
-  const dayChange = toNumber(marketData.dayChange);
+  const perShareDayChange = toNumber(marketData.dayChange);
   const dayChangePercent = toNumber(marketData.dayChangePercent);
   const dividendRate = toNumber(marketData.dividendRate) ?? 0;
   const dividendYield = toNumber(marketData.dividendYield) ?? 0;
 
   const marketValue = shares * price;
+  const dayChange = perShareDayChange == null ? null : shares * perShareDayChange;
   const totalCost = shares * costBasis;
   const totalReturn = marketValue - totalCost;
   const totalReturnPercent = totalCost > 0 ? totalReturn / totalCost : null;
@@ -1133,6 +1197,25 @@ app.get("/api/search", async (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: "Unable to search symbols right now.",
+      details: error.message,
+    });
+  }
+});
+
+app.get("/api/market-overview", async (req, res) => {
+  try {
+    const items = await Promise.all(
+      marketOverviewSymbols.map((config) => getMarketOverviewItem(config))
+    );
+
+    res.json({
+      items,
+      dataProvider: "Yahoo Finance",
+      refreshedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Unable to load market overview.",
       details: error.message,
     });
   }
