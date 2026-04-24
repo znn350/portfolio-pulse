@@ -13,7 +13,25 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="page-shell">
+    <section id="auth-shell" class="auth-shell hidden">
+      <div class="auth-card panel">
+        <div class="auth-copy">
+          <p class="eyebrow">Protected Access</p>
+          <h1 id="auth-title">Sign in with Google</h1>
+          <p id="auth-subtitle" class="muted">
+            Portfolio Pulse uses Google as the identity provider, but only Google accounts already registered on the server can enter the app.
+          </p>
+        </div>
+
+        <a id="google-login-link" class="google-button" href="/api/auth/google">
+          Continue With Google
+        </a>
+        <p id="auth-note" class="auth-note"></p>
+        <p id="auth-status" class="form-status"></p>
+      </div>
+    </section>
+
+    <div id="app-shell" class="page-shell hidden">
       <aside class="sidebar">
         <div class="brand-block">
           <p class="eyebrow">Portfolio Tracker</p>
@@ -23,6 +41,58 @@
             portfolios.
           </p>
         </div>
+
+        <section class="panel profile-panel">
+          <div>
+            <p class="eyebrow">Signed In</p>
+            <h2 id="current-user-name">Loading...</h2>
+            <p id="current-user-meta" class="muted"></p>
+          </div>
+          <button id="logout-btn" class="ghost-button" type="button">Log Out</button>
+        </section>
+
+        <section id="admin-panel" class="panel hidden">
+          <div class="panel-heading">
+            <h2>Access</h2>
+            <button
+              id="toggle-admin-panel-btn"
+              class="ghost-button"
+              type="button"
+              aria-expanded="false"
+              aria-controls="admin-panel-body"
+            >
+              Show
+            </button>
+          </div>
+          <div id="admin-panel-body" class="hidden">
+            <p class="muted admin-copy">
+              Owner-only access list for Google sign-in.
+            </p>
+            <form id="admin-user-form" class="holding-form admin-form">
+              <label>
+                Google Email
+                <input
+                  id="admin-email-input"
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="new.user@example.com"
+                />
+              </label>
+              <label>
+                Display Name
+                <input
+                  id="admin-name-input"
+                  name="name"
+                  placeholder="Optional friendly name"
+                />
+              </label>
+              <button class="primary-button" type="submit">Add User</button>
+            </form>
+            <p id="admin-status" class="form-status"></p>
+            <div id="admin-users-list" class="admin-users-list"></div>
+          </div>
+        </section>
 
         <section class="panel">
           <div class="panel-heading">
@@ -147,4 +217,4 @@
 
     <script src="/app.js"></script>
   </body>
-  </html>
+</html>

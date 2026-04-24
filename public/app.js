@@ -1,34 +1,50 @@
-const storageKey = "portfolio-pulse-state-v1";
-
 const defaultState = {
   selectedPortfolioId: "core",
   portfolios: [
     {
       id: "core",
       name: "Core Portfolio",
-      holdings: [
-        {
-          symbol: "AAPL",
-          quoteType: "EQUITY",
-          shares: 15,
-          costBasis: 190,
-          purchaseDate: "2024-01-15",
-          notes: "Example stock holding",
-        },
-        {
-          symbol: "VTSAX",
-          quoteType: "MUTUALFUND",
-          shares: 22.5,
-          costBasis: 119.5,
-          purchaseDate: "2023-07-10",
-          notes: "Example mutual fund holding",
-        },
-      ],
+      holdings: [],
     },
   ],
 };
 
+const authErrorMessages = {
+  google_not_configured:
+    "Google sign-in is not configured yet. Add your Google OAuth environment variables on the server.",
+  google_access_denied: "Google sign-in was canceled.",
+  oauth_state_expired: "Your Google sign-in attempt expired. Try again.",
+  oauth_state_mismatch: "The Google sign-in request could not be verified. Try again.",
+  missing_auth_code: "Google sign-in did not return an authorization code.",
+  not_registered:
+    "This Google account is not registered for Portfolio Pulse. Ask an admin to add it to the server-side user list.",
+  google_sign_in_failed:
+    "Google sign-in failed on the server. Double-check your Google OAuth settings and redirect URI.",
+};
+
+const authSuccessMessages = {
+  registered: "Your Google account is now registered as the first owner account.",
+};
+
 const elements = {
+  authShell: document.querySelector("#auth-shell"),
+  authTitle: document.querySelector("#auth-title"),
+  authSubtitle: document.querySelector("#auth-subtitle"),
+  authStatus: document.querySelector("#auth-status"),
+  googleLoginLink: document.querySelector("#google-login-link"),
+  authNote: document.querySelector("#auth-note"),
+  appShell: document.querySelector("#app-shell"),
+  currentUserName: document.querySelector("#current-user-name"),
+  currentUserMeta: document.querySelector("#current-user-meta"),
+  logoutBtn: document.querySelector("#logout-btn"),
+  adminPanel: document.querySelector("#admin-panel"),
+  toggleAdminPanelBtn: document.querySelector("#toggle-admin-panel-btn"),
+  adminPanelBody: document.querySelector("#admin-panel-body"),
+  adminUserForm: document.querySelector("#admin-user-form"),
+  adminEmailInput: document.querySelector("#admin-email-input"),
+  adminNameInput: document.querySelector("#admin-name-input"),
+  adminStatus: document.querySelector("#admin-status"),
+  adminUsersList: document.querySelector("#admin-users-list"),
   portfolioList: document.querySelector("#portfolio-list"),
   portfolioName: document.querySelector("#portfolio-name"),
   portfolioMeta: document.querySelector("#portfolio-meta"),
@@ -51,7 +67,8 @@ const elements = {
   portfolioTemplate: document.querySelector("#portfolio-item-template"),
 };
 
-let state = loadState();
+let currentUser = null;
+let state = structuredClone(defaultState);
 let lastSnapshot = {
   holdings: [],
   summary: {},
@@ -64,23 +81,123 @@ let saveTimer = null;
 let isHydratingFromServer = false;
 let storageMode = "";
 let isHoldingFormOpen = false;
+let isAdminPanelOpen = false;
+let adminUsers = [];
 
-function loadState() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(storageKey));
-    if (saved?.portfolios?.length) {
-      return saved;
-    }
-  } catch (error) {
-    console.error("Unable to load saved state", error);
+function getUserStorageKey(user) {
+  return user ? `portfolio-pulse-state:${user.id}` : "";
+}
+
+function consumeAuthFlash() {
+  const params = new URLSearchParams(window.location.search);
+  const errorCode = params.get("auth_error");
+  const successCode = params.get("auth_success");
+
+  if (!errorCode && !successCode) {
+    return null;
   }
 
-  return structuredClone(defaultState);
+  params.delete("auth_error");
+  params.delete("auth_success");
+  const nextQuery = params.toString();
+  const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`;
+  window.history.replaceState({}, "", nextUrl);
+
+  if (errorCode) {
+    return {
+      message: authErrorMessages[errorCode] || "Sign-in failed.",
+      isError: true,
+    };
+  }
+
+  return {
+    message: authSuccessMessages[successCode] || "",
+    isError: false,
+  };
+}
+
+function resetStateForSignedOutUser() {
+  currentUser = null;
+  state = structuredClone(defaultState);
+  lastSnapshot = {
+    holdings: [],
+    summary: {},
+    dataProviders: [],
+    refreshedAt: null,
+  };
+  storageMode = "";
+  selectedSearchResult = null;
+  isAdminPanelOpen = false;
+  adminUsers = [];
+  clearTimeout(saveTimer);
+  clearTimeout(searchTimer);
+}
+
+function setAuthMode(needsSetup, googleAuthEnabled) {
+  elements.authTitle.textContent = needsSetup
+    ? "Register the first Google account"
+    : "Sign in with Google";
+  elements.authSubtitle.textContent = needsSetup
+    ? "The first approved Google account becomes the owner. After that, only registered Google accounts can enter the app."
+    : "Portfolio Pulse now uses Google as the identity provider, but access is still limited to Google accounts registered on the server.";
+  elements.googleLoginLink.textContent = needsSetup
+    ? "Continue With Google To Register"
+    : "Continue With Google";
+  elements.googleLoginLink.classList.toggle("disabled", !googleAuthEnabled);
+  elements.googleLoginLink.setAttribute(
+    "aria-disabled",
+    String(!googleAuthEnabled)
+  );
+  elements.googleLoginLink.href = googleAuthEnabled ? "/api/auth/google" : "#";
+  elements.authNote.textContent = googleAuthEnabled
+    ? needsSetup
+      ? "After the first account is created, additional users must already exist in the server-side allowlist to sign in."
+      : "If a Google account is not already registered in the server-side user store, access will be denied."
+    : "Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, and make sure the Google redirect URI points to /api/auth/google/callback.";
+}
+
+function showAuthShell(message = "", isError = false, needsSetup = false, googleAuthEnabled = true) {
+  setAuthMode(needsSetup, googleAuthEnabled);
+  elements.authShell.classList.remove("hidden");
+  elements.appShell.classList.add("hidden");
+  elements.authStatus.textContent = message;
+  elements.authStatus.className = isError ? "form-status negative" : "form-status";
+}
+
+function showAppShell(user) {
+  currentUser = user;
+  elements.currentUserName.textContent = user.name || user.email;
+  elements.currentUserMeta.textContent =
+    user.role === "owner" ? `${user.email} · Owner` : user.email;
+  elements.authShell.classList.add("hidden");
+  elements.appShell.classList.remove("hidden");
+  elements.adminPanel.classList.toggle("hidden", user.role !== "owner");
+  syncAdminPanelVisibility();
+}
+
+function cacheStateLocally() {
+  if (!currentUser) {
+    return;
+  }
+
+  localStorage.setItem(getUserStorageKey(currentUser), JSON.stringify(state));
+}
+
+function tryHydrateFromLocalCache(user) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(getUserStorageKey(user)));
+    if (saved?.portfolios?.length) {
+      state = saved;
+      render();
+    }
+  } catch (error) {
+    console.error("Unable to load cached profile state", error);
+  }
 }
 
 function saveState() {
-  localStorage.setItem(storageKey, JSON.stringify(state));
-  if (isHydratingFromServer) {
+  cacheStateLocally();
+  if (isHydratingFromServer || !currentUser) {
     return;
   }
   scheduleServerSave();
@@ -146,6 +263,47 @@ function renderPortfolios() {
   });
 }
 
+function syncAdminPanelVisibility() {
+  const shouldShowPanel = Boolean(currentUser && currentUser.role === "owner");
+  elements.adminPanel.classList.toggle("hidden", !shouldShowPanel);
+  elements.adminPanelBody.classList.toggle("hidden", !isAdminPanelOpen);
+  elements.toggleAdminPanelBtn.setAttribute(
+    "aria-expanded",
+    String(isAdminPanelOpen)
+  );
+  elements.toggleAdminPanelBtn.textContent = isAdminPanelOpen ? "Hide" : "Show";
+}
+
+function toggleAdminPanel() {
+  isAdminPanelOpen = !isAdminPanelOpen;
+  syncAdminPanelVisibility();
+}
+
+function renderAdminUsers() {
+  if (!currentUser || currentUser.role !== "owner") {
+    elements.adminUsersList.innerHTML = "";
+    return;
+  }
+
+  if (!adminUsers.length) {
+    elements.adminUsersList.innerHTML =
+      '<p class="muted admin-empty">No registered users yet.</p>';
+    return;
+  }
+
+  elements.adminUsersList.innerHTML = adminUsers
+    .map(
+      (user) => `
+        <article class="admin-user-card">
+          <strong>${user.name || user.email}</strong>
+          <span>${user.email}</span>
+          <span class="chip">${user.role === "owner" ? "Owner" : "Member"}</span>
+        </article>
+      `
+    )
+    .join("");
+}
+
 function renderSummary() {
   const selected = getSelectedPortfolio();
   elements.portfolioName.textContent = selected.name;
@@ -166,7 +324,9 @@ function renderSummary() {
 
   if (storageMode) {
     elements.storageBanner.className = "storage-banner";
-    elements.storageBanner.textContent = `Saving to ${storageMode}`;
+    elements.storageBanner.textContent = currentUser
+      ? `Saving ${currentUser.email}'s data to ${storageMode}`
+      : `Saving to ${storageMode}`;
   } else {
     elements.storageBanner.className = "storage-banner hidden";
     elements.storageBanner.textContent = "";
@@ -224,6 +384,26 @@ async function readErrorMessage(response, fallbackMessage) {
   }
 }
 
+async function authFetch(url, options = {}) {
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+
+  if (response.status === 401) {
+    resetStateForSignedOutUser();
+    render();
+    showAuthShell("Your session expired. Sign in with Google again to continue.", true, false, true);
+    throw new Error("Authentication required.");
+  }
+
+  return response;
+}
+
 function renderHoldings() {
   const selected = getSelectedPortfolio();
   const snapshotMap = new Map(
@@ -231,7 +411,8 @@ function renderHoldings() {
   );
 
   if (!selected.holdings.length) {
-    elements.holdingsTable.innerHTML = `<tr><td colspan="11" class="empty-state">No holdings yet. Add a stock or mutual fund from the form on the left.</td></tr>`;
+    elements.holdingsTable.innerHTML =
+      '<tr><td colspan="11" class="empty-state">No holdings yet. Add a stock or mutual fund from the form on the left.</td></tr>';
     return;
   }
 
@@ -241,9 +422,6 @@ function renderHoldings() {
       const returnClass =
         (live?.totalReturn || 0) >= 0 ? "positive" : "negative";
       const yieldText = live ? formatPercent(live.dividendYield) : "-";
-      const dividendMeta = live?.exDividendDate
-        ? `<div class="holding-name">Ex-div ${formatDate(live.exDividendDate)}</div>`
-        : `<div class="holding-name">No ex-dividend date available</div>`;
 
       return `
         <tr>
@@ -272,7 +450,7 @@ function renderHoldings() {
           </td>
           <td data-label="Yield">
             <div>${yieldText}</div>
-            ${dividendMeta}
+            <div class="holding-name">${live?.exDividendDate ? `Ex-div ${formatDate(live.exDividendDate)}` : ""}</div>
           </td>
           <td data-label="Annual Income">${live ? formatCurrency(live.annualDividendIncome, live.currency) : "-"}</td>
           <td data-label="Actions">
@@ -290,8 +468,15 @@ function renderHoldings() {
 
 function render() {
   renderPortfolios();
+  renderAdminUsers();
+  syncAdminPanelVisibility();
   renderSummary();
   renderHoldings();
+}
+
+function setAdminStatus(message, isError = false) {
+  elements.adminStatus.textContent = message;
+  elements.adminStatus.className = isError ? "form-status negative" : "form-status";
 }
 
 function addPortfolio() {
@@ -309,7 +494,7 @@ function addPortfolio() {
   state.portfolios.push(portfolio);
   state.selectedPortfolioId = portfolio.id;
   saveState();
-  lastSnapshot = { holdings: [], summary: {}, refreshedAt: null };
+  lastSnapshot = { holdings: [], summary: {}, dataProviders: [], refreshedAt: null };
   render();
 }
 
@@ -330,7 +515,7 @@ function deleteSelectedPortfolio() {
   );
   state.selectedPortfolioId = state.portfolios[0].id;
   saveState();
-  lastSnapshot = { holdings: [], summary: {}, refreshedAt: null };
+  lastSnapshot = { holdings: [], summary: {}, dataProviders: [], refreshedAt: null };
   render();
   refreshSnapshot();
 }
@@ -363,6 +548,10 @@ function removeHolding(symbol) {
 }
 
 async function refreshSnapshot() {
+  if (!currentUser) {
+    return;
+  }
+
   const portfolio = getSelectedPortfolio();
 
   if (!portfolio?.holdings?.length) {
@@ -385,14 +574,13 @@ async function refreshSnapshot() {
   elements.refreshedAt.textContent = "Refreshing live prices...";
 
   try {
-    const response = await fetch("/api/portfolio-snapshot", {
+    const response = await authFetch("/api/portfolio-snapshot", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ holdings: portfolio.holdings }),
     });
 
     if (!response.ok) {
-      throw new Error("Snapshot request failed");
+      throw new Error(await readErrorMessage(response, "Snapshot request failed"));
     }
 
     lastSnapshot = await response.json();
@@ -404,11 +592,14 @@ async function refreshSnapshot() {
 }
 
 async function pushStateToServer() {
+  if (!currentUser) {
+    return;
+  }
+
   try {
     setSaveStatus("Saving portfolios...");
-    const response = await fetch("/api/app-state", {
+    const response = await authFetch("/api/app-state", {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(state),
     });
 
@@ -419,7 +610,7 @@ async function pushStateToServer() {
     const payload = await response.json();
     state = payload.state;
     storageMode = payload.storageMode || storageMode;
-    localStorage.setItem(storageKey, JSON.stringify(state));
+    cacheStateLocally();
     setSaveStatus(
       payload.savedAt
         ? `Saved ${new Date(payload.savedAt).toLocaleTimeString()}`
@@ -439,8 +630,12 @@ function scheduleServerSave() {
 }
 
 async function loadStateFromServer() {
+  if (!currentUser) {
+    return;
+  }
+
   try {
-    const response = await fetch("/api/app-state");
+    const response = await authFetch("/api/app-state");
     if (!response.ok) {
       throw new Error(await readErrorMessage(response, "Unable to load saved state"));
     }
@@ -449,7 +644,7 @@ async function loadStateFromServer() {
     isHydratingFromServer = true;
     state = payload.state;
     storageMode = payload.storageMode || "";
-    localStorage.setItem(storageKey, JSON.stringify(state));
+    cacheStateLocally();
     lastSnapshot = {
       holdings: [],
       summary: {},
@@ -459,26 +654,54 @@ async function loadStateFromServer() {
     render();
     setSaveStatus(
       payload.savedAt
-        ? `Loaded shared save from ${new Date(payload.savedAt).toLocaleString()}`
-        : "Loaded shared save"
+        ? `Loaded ${currentUser.email}'s saved data from ${new Date(payload.savedAt).toLocaleString()}`
+        : `Loaded ${currentUser.email}'s saved data`
     );
   } catch (error) {
     console.error(error);
-    setSaveStatus(`Using browser-only data. ${error.message}`, true);
+    setSaveStatus(`Unable to load saved data. ${error.message}`, true);
   } finally {
     isHydratingFromServer = false;
     refreshSnapshot();
   }
 }
 
+async function loadAdminUsers() {
+  if (!currentUser || currentUser.role !== "owner") {
+    adminUsers = [];
+    renderAdminUsers();
+    return;
+  }
+
+  try {
+    const response = await authFetch("/api/admin/users");
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Unable to load user access list"));
+    }
+
+    const payload = await response.json();
+    adminUsers = payload.users || [];
+    renderAdminUsers();
+  } catch (error) {
+    console.error(error);
+    setAdminStatus(error.message, true);
+  }
+}
+
 async function searchSymbols(query) {
-  if (query.trim().length < 2) {
+  if (!currentUser || query.trim().length < 2) {
     elements.searchResults.innerHTML = "";
     return;
   }
 
   try {
-    const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+    const response = await authFetch(`/api/search?q=${encodeURIComponent(query)}`, {
+      headers: {},
+    });
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Search request failed"));
+    }
+
     const data = await response.json();
 
     elements.searchResults.innerHTML = (data.results || [])
@@ -510,6 +733,94 @@ async function searchSymbols(query) {
   }
 }
 
+async function handleAuthenticatedUser(user) {
+  resetStateForSignedOutUser();
+  showAppShell(user);
+  tryHydrateFromLocalCache(user);
+  setSaveStatus("Loading your saved portfolios...");
+  render();
+  await loadAdminUsers();
+  await loadStateFromServer();
+}
+
+async function initializeSession() {
+  const flash = consumeAuthFlash();
+
+  try {
+    const response = await fetch("/api/auth/session", { credentials: "same-origin" });
+    const session = await response.json();
+
+    if (session.authenticated && session.user) {
+      await handleAuthenticatedUser(session.user);
+      if (flash?.message) {
+        setSaveStatus(flash.message, flash.isError);
+      }
+      return;
+    }
+
+    showAuthShell(
+      flash?.message || "",
+      flash?.isError || false,
+      Boolean(session.needsSetup),
+      Boolean(session.googleAuthEnabled)
+    );
+  } catch (error) {
+    console.error(error);
+    showAuthShell("Unable to contact the server right now.", true, false, false);
+  }
+}
+
+elements.googleLoginLink.addEventListener("click", (event) => {
+  if (elements.googleLoginLink.classList.contains("disabled")) {
+    event.preventDefault();
+  }
+});
+
+elements.logoutBtn.addEventListener("click", async () => {
+  try {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "same-origin",
+    });
+  } catch (error) {
+    console.error(error);
+  } finally {
+    resetStateForSignedOutUser();
+    render();
+    showAuthShell("Signed out.", false, false, true);
+  }
+});
+
+elements.toggleAdminPanelBtn.addEventListener("click", toggleAdminPanel);
+
+elements.adminUserForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  setAdminStatus("Adding user...");
+
+  try {
+    const response = await authFetch("/api/admin/users", {
+      method: "POST",
+      body: JSON.stringify({
+        email: elements.adminEmailInput.value.trim(),
+        name: elements.adminNameInput.value.trim(),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Unable to add user"));
+    }
+
+    const payload = await response.json();
+    adminUsers = payload.users || adminUsers;
+    elements.adminUserForm.reset();
+    renderAdminUsers();
+    setAdminStatus(`Added ${payload.user.email}.`);
+  } catch (error) {
+    console.error(error);
+    setAdminStatus(error.message, true);
+  }
+});
+
 elements.holdingForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const formData = new FormData(event.currentTarget);
@@ -518,7 +829,8 @@ elements.holdingForm.addEventListener("submit", async (event) => {
     symbol: String(formData.get("symbol") || "").trim(),
     quoteType:
       selectedSearchResult &&
-      selectedSearchResult.symbol.toUpperCase() === String(formData.get("symbol") || "").trim().toUpperCase()
+      selectedSearchResult.symbol.toUpperCase() ===
+        String(formData.get("symbol") || "").trim().toUpperCase()
         ? selectedSearchResult.quoteType
         : "",
     shares: Number(formData.get("shares")),
@@ -537,7 +849,8 @@ elements.holdingForm.addEventListener("submit", async (event) => {
 elements.symbolInput.addEventListener("input", (event) => {
   if (
     !selectedSearchResult ||
-    selectedSearchResult.symbol.toUpperCase() !== String(event.target.value || "").trim().toUpperCase()
+    selectedSearchResult.symbol.toUpperCase() !==
+      String(event.target.value || "").trim().toUpperCase()
   ) {
     selectedSearchResult = null;
   }
@@ -554,4 +867,4 @@ elements.toggleHoldingFormBtn.addEventListener("click", toggleHoldingForm);
 
 syncHoldingFormVisibility();
 render();
-loadStateFromServer();
+initializeSession();
