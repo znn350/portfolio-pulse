@@ -149,6 +149,17 @@ textarea {
   font-size: clamp(2rem, 4vw, 3.5rem);
 }
 
+.hero-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.hero-title-row .ghost-button {
+  padding-inline: 14px;
+}
+
 .eyebrow {
   margin: 0 0 10px;
   text-transform: uppercase;

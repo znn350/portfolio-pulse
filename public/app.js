@@ -69,6 +69,7 @@ const elements = {
   searchResults: document.querySelector("#search-results"),
   refreshBtn: document.querySelector("#refresh-btn"),
   newPortfolioBtn: document.querySelector("#new-portfolio-btn"),
+  renamePortfolioBtn: document.querySelector("#rename-portfolio-btn"),
   deletePortfolioBtn: document.querySelector("#delete-portfolio-btn"),
   portfolioTemplate: document.querySelector("#portfolio-item-template"),
 };
@@ -754,6 +755,29 @@ function addPortfolio() {
   render();
 }
 
+function renameSelectedPortfolio() {
+  const selected = getSelectedPortfolio();
+  const nextName = window.prompt("Rename portfolio", selected.name);
+
+  if (nextName === null) {
+    return;
+  }
+
+  const trimmedName = nextName.trim();
+  if (!trimmedName) {
+    window.alert("Portfolio name cannot be empty.");
+    return;
+  }
+
+  if (trimmedName === selected.name) {
+    return;
+  }
+
+  selected.name = trimmedName;
+  saveState();
+  render();
+}
+
 function deleteSelectedPortfolio() {
   if (state.portfolios.length === 1) {
     window.alert("Keep at least one portfolio available.");
@@ -1164,6 +1188,7 @@ elements.symbolInput.addEventListener("input", (event) => {
 
 elements.refreshBtn.addEventListener("click", refreshAllSnapshots);
 elements.newPortfolioBtn.addEventListener("click", addPortfolio);
+elements.renamePortfolioBtn.addEventListener("click", renameSelectedPortfolio);
 elements.deletePortfolioBtn.addEventListener("click", deleteSelectedPortfolio);
 elements.toggleHoldingFormBtn.addEventListener("click", toggleHoldingForm);
 elements.cancelHoldingEditBtn.addEventListener("click", () => {
