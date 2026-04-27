@@ -11,6 +11,49 @@
   --positive: #12795f;
   --negative: #b2463a;
   --shadow: 0 20px 60px rgba(72, 43, 20, 0.08);
+  --body-gradient:
+    radial-gradient(circle at top left, rgba(238, 179, 108, 0.28), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(14, 122, 100, 0.18), transparent 32%),
+    linear-gradient(180deg, #fbf7f1 0%, var(--bg) 100%);
+  --sidebar-bg: rgba(255, 248, 241, 0.8);
+  --input-bg: rgba(255, 255, 255, 0.86);
+  --ghost-bg: transparent;
+  --google-bg: linear-gradient(135deg, #fffdfa 0%, #f0ece5 100%);
+  --card-bg: rgba(255, 255, 255, 0.66);
+  --table-row-bg: rgba(255, 255, 255, 0.72);
+  --portfolio-item-bg: rgba(239, 228, 213, 0.72);
+  --portfolio-item-hover-bg: #fff8ef;
+  --admin-card-bg: rgba(239, 228, 213, 0.42);
+  --fallback-bg: rgba(178, 70, 58, 0.12);
+}
+
+:root[data-theme="dark"] {
+  --bg: #121a21;
+  --bg-strong: #1a242d;
+  --panel: rgba(18, 28, 36, 0.88);
+  --line: rgba(196, 215, 230, 0.14);
+  --text: #ecf3f8;
+  --muted: #9fb1bf;
+  --accent: #41c3a2;
+  --accent-soft: rgba(65, 195, 162, 0.16);
+  --danger: #ff8e81;
+  --positive: #59d9b6;
+  --negative: #ff8e81;
+  --shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+  --body-gradient:
+    radial-gradient(circle at top left, rgba(55, 131, 126, 0.22), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(255, 142, 129, 0.14), transparent 34%),
+    linear-gradient(180deg, #0e151b 0%, var(--bg) 100%);
+  --sidebar-bg: rgba(13, 21, 28, 0.84);
+  --input-bg: rgba(12, 20, 26, 0.9);
+  --ghost-bg: rgba(255, 255, 255, 0.02);
+  --google-bg: linear-gradient(135deg, rgba(32, 45, 56, 0.96) 0%, rgba(20, 31, 40, 0.96) 100%);
+  --card-bg: rgba(16, 26, 34, 0.76);
+  --table-row-bg: rgba(14, 24, 31, 0.82);
+  --portfolio-item-bg: rgba(255, 255, 255, 0.04);
+  --portfolio-item-hover-bg: rgba(255, 255, 255, 0.08);
+  --admin-card-bg: rgba(255, 255, 255, 0.05);
+  --fallback-bg: rgba(255, 142, 129, 0.16);
 }
 
 * {
@@ -22,10 +65,7 @@ body {
   min-height: 100vh;
   font-family: "Space Grotesk", sans-serif;
   color: var(--text);
-  background:
-    radial-gradient(circle at top left, rgba(238, 179, 108, 0.28), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(14, 122, 100, 0.18), transparent 32%),
-    linear-gradient(180deg, #fbf7f1 0%, var(--bg) 100%);
+  background: var(--body-gradient);
 }
 
 button,
@@ -74,7 +114,7 @@ textarea {
   padding: 12px 18px;
   border-radius: 999px;
   border: 1px solid rgba(79, 55, 38, 0.12);
-  background: linear-gradient(135deg, #fffdfa 0%, #f0ece5 100%);
+  background: var(--google-bg);
   color: var(--text);
   text-decoration: none;
   font-weight: 700;
@@ -118,7 +158,7 @@ textarea {
   flex-direction: column;
   padding: 28px 22px;
   border-right: 1px solid var(--line);
-  background: rgba(255, 248, 241, 0.8);
+  background: var(--sidebar-bg);
   backdrop-filter: blur(16px);
 }
 
@@ -194,6 +234,16 @@ textarea {
   gap: 16px;
 }
 
+.profile-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.profile-actions .ghost-button {
+  flex: 1 1 140px;
+}
+
 .admin-copy {
   margin: 12px 0 0;
 }
@@ -214,7 +264,7 @@ textarea {
   padding: 12px 14px;
   border: 1px solid rgba(79, 55, 38, 0.08);
   border-radius: 16px;
-  background: rgba(239, 228, 213, 0.42);
+  background: var(--admin-card-bg);
 }
 
 .admin-user-card span {
@@ -263,7 +313,7 @@ textarea {
   width: 100%;
   text-align: left;
   border: 1px solid rgba(79, 55, 38, 0.08);
-  background: rgba(239, 228, 213, 0.72);
+  background: var(--portfolio-item-bg);
   border-radius: 18px;
   padding: 14px;
   color: rgba(47, 36, 28, 0.74);
@@ -281,7 +331,7 @@ textarea {
 .portfolio-item:hover {
   transform: translateY(-1px);
   border-color: rgba(14, 122, 100, 0.18);
-  background: #fff8ef;
+  background: var(--portfolio-item-hover-bg);
   color: var(--text);
 }
 
@@ -344,7 +394,8 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 12px 14px;
-  background: rgba(255, 255, 255, 0.86);
+  background: var(--input-bg);
+  color: var(--text);
 }
 
 textarea {
@@ -366,7 +417,7 @@ textarea {
 }
 
 .ghost-button {
-  background: transparent;
+  background: var(--ghost-bg);
   border-color: var(--line);
   color: var(--text);
 }
@@ -416,7 +467,7 @@ textarea {
   padding: 16px;
   border: 1px solid rgba(79, 55, 38, 0.08);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.66);
+  background: var(--card-bg);
 }
 
 .market-card.loading {
@@ -517,7 +568,7 @@ textarea {
 }
 
 .provider-banner.fallback {
-  background: rgba(178, 70, 58, 0.12);
+  background: var(--fallback-bg);
   color: var(--danger);
 }
 
@@ -867,7 +918,7 @@ th {
   tr {
     border: 1px solid var(--line);
     border-radius: 18px;
-    background: rgba(255, 255, 255, 0.72);
+    background: var(--table-row-bg);
     padding: 12px 14px;
     box-shadow: 0 12px 28px rgba(72, 43, 20, 0.06);
   }

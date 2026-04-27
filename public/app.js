@@ -26,6 +26,8 @@ const authSuccessMessages = {
   registered: "Your Google account is now registered as the first owner account.",
 };
 
+const themeStorageKey = "portfolio-pulse-theme";
+
 const elements = {
   authShell: document.querySelector("#auth-shell"),
   authTitle: document.querySelector("#auth-title"),
@@ -36,6 +38,7 @@ const elements = {
   appShell: document.querySelector("#app-shell"),
   currentUserName: document.querySelector("#current-user-name"),
   currentUserMeta: document.querySelector("#current-user-meta"),
+  themeToggleBtn: document.querySelector("#theme-toggle-btn"),
   logoutBtn: document.querySelector("#logout-btn"),
   adminPanel: document.querySelector("#admin-panel"),
   toggleAdminPanelBtn: document.querySelector("#toggle-admin-panel-btn"),
@@ -97,6 +100,36 @@ let isAdminPanelOpen = false;
 let adminUsers = [];
 let draggedHoldingSymbol = null;
 let editingHoldingSymbol = null;
+let currentTheme = "light";
+
+function getStoredTheme() {
+  const savedTheme = localStorage.getItem(themeStorageKey);
+  return savedTheme === "dark" ? "dark" : "light";
+}
+
+function syncThemeToggleLabel() {
+  if (!elements.themeToggleBtn) {
+    return;
+  }
+
+  elements.themeToggleBtn.textContent =
+    currentTheme === "dark" ? "Light Mode" : "Dark Mode";
+  elements.themeToggleBtn.setAttribute(
+    "aria-pressed",
+    String(currentTheme === "dark")
+  );
+}
+
+function applyTheme(theme) {
+  currentTheme = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = currentTheme;
+  localStorage.setItem(themeStorageKey, currentTheme);
+  syncThemeToggleLabel();
+}
+
+function toggleTheme() {
+  applyTheme(currentTheme === "dark" ? "light" : "dark");
+}
 
 function getUserStorageKey(user) {
   return user ? `portfolio-pulse-state:${user.id}` : "";
@@ -1206,6 +1239,7 @@ elements.logoutBtn.addEventListener("click", async () => {
   }
 });
 
+elements.themeToggleBtn.addEventListener("click", toggleTheme);
 elements.toggleAdminPanelBtn.addEventListener("click", toggleAdminPanel);
 
 elements.adminUserForm.addEventListener("submit", async (event) => {
@@ -1287,5 +1321,6 @@ elements.cancelHoldingEditBtn.addEventListener("click", () => {
 });
 
 syncHoldingFormVisibility();
+applyTheme(getStoredTheme());
 render();
 initializeSession();
