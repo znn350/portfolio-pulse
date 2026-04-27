@@ -234,6 +234,15 @@ textarea {
   gap: 16px;
 }
 
+.profile-summary h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.profile-summary .muted {
+  margin: 8px 0 0;
+}
+
 .profile-actions {
   display: flex;
   gap: 10px;
@@ -279,11 +288,6 @@ textarea {
 
 .admin-empty {
   margin: 0;
-}
-
-.profile-panel h2 {
-  margin: 0;
-  font-size: 1.3rem;
 }
 
 .panel-heading {

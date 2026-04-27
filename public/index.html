@@ -44,16 +44,29 @@
           </div>
 
           <section class="panel profile-panel">
-            <div>
-              <p class="eyebrow">Signed In</p>
-              <h2 id="current-user-name">Loading...</h2>
-              <p id="current-user-meta" class="muted"></p>
-            </div>
-            <div class="profile-actions">
-              <button id="theme-toggle-btn" class="ghost-button" type="button">
-                Dark Mode
+            <div class="panel-heading">
+              <h2>Signed In</h2>
+              <button
+                id="toggle-profile-panel-btn"
+                class="ghost-button"
+                type="button"
+                aria-expanded="false"
+                aria-controls="profile-panel-body"
+              >
+                Show
               </button>
-              <button id="logout-btn" class="ghost-button" type="button">Log Out</button>
+            </div>
+            <div id="profile-panel-body" class="hidden">
+              <div class="profile-summary">
+                <h2 id="current-user-name">Loading...</h2>
+                <p id="current-user-meta" class="muted"></p>
+              </div>
+              <div class="profile-actions">
+                <button id="theme-toggle-btn" class="ghost-button" type="button">
+                  Dark Mode
+                </button>
+                <button id="logout-btn" class="ghost-button" type="button">Log Out</button>
+              </div>
             </div>
           </section>
 

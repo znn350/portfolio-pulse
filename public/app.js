@@ -38,6 +38,8 @@ const elements = {
   appShell: document.querySelector("#app-shell"),
   currentUserName: document.querySelector("#current-user-name"),
   currentUserMeta: document.querySelector("#current-user-meta"),
+  toggleProfilePanelBtn: document.querySelector("#toggle-profile-panel-btn"),
+  profilePanelBody: document.querySelector("#profile-panel-body"),
   themeToggleBtn: document.querySelector("#theme-toggle-btn"),
   logoutBtn: document.querySelector("#logout-btn"),
   adminPanel: document.querySelector("#admin-panel"),
@@ -96,6 +98,7 @@ let saveTimer = null;
 let isHydratingFromServer = false;
 let storageMode = "";
 let isHoldingFormOpen = false;
+let isProfilePanelOpen = false;
 let isAdminPanelOpen = false;
 let adminUsers = [];
 let draggedHoldingSymbol = null;
@@ -224,6 +227,7 @@ function showAppShell(user) {
   elements.authShell.classList.add("hidden");
   elements.appShell.classList.remove("hidden");
   elements.adminPanel.classList.toggle("hidden", user.role !== "owner");
+  syncProfilePanelVisibility();
   syncAdminPanelVisibility();
 }
 
@@ -355,6 +359,15 @@ function renderPortfolios() {
   });
 }
 
+function syncProfilePanelVisibility() {
+  elements.profilePanelBody.classList.toggle("hidden", !isProfilePanelOpen);
+  elements.toggleProfilePanelBtn.setAttribute(
+    "aria-expanded",
+    String(isProfilePanelOpen)
+  );
+  elements.toggleProfilePanelBtn.textContent = isProfilePanelOpen ? "Hide" : "Show";
+}
+
 function syncAdminPanelVisibility() {
   const shouldShowPanel = Boolean(currentUser && currentUser.role === "owner");
   elements.adminPanel.classList.toggle("hidden", !shouldShowPanel);
@@ -369,6 +382,11 @@ function syncAdminPanelVisibility() {
 function toggleAdminPanel() {
   isAdminPanelOpen = !isAdminPanelOpen;
   syncAdminPanelVisibility();
+}
+
+function toggleProfilePanel() {
+  isProfilePanelOpen = !isProfilePanelOpen;
+  syncProfilePanelVisibility();
 }
 
 function reorderHoldings(draggedSymbol, targetSymbol, insertAfter = false) {
@@ -1239,6 +1257,7 @@ elements.logoutBtn.addEventListener("click", async () => {
   }
 });
 
+elements.toggleProfilePanelBtn.addEventListener("click", toggleProfilePanel);
 elements.themeToggleBtn.addEventListener("click", toggleTheme);
 elements.toggleAdminPanelBtn.addEventListener("click", toggleAdminPanel);
 
@@ -1321,6 +1340,7 @@ elements.cancelHoldingEditBtn.addEventListener("click", () => {
 });
 
 syncHoldingFormVisibility();
+syncProfilePanelVisibility();
 applyTheme(getStoredTheme());
 render();
 initializeSession();
