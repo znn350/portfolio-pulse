@@ -65,6 +65,8 @@ const elements = {
   totalReturn: document.querySelector("#total-return"),
   totalReturnCard: document.querySelector("#total-return-card"),
   annualDividend: document.querySelector("#annual-dividend"),
+  toggleHeroPanelBtn: document.querySelector("#toggle-hero-panel-btn"),
+  heroPanelBody: document.querySelector("#hero-panel-body"),
   holdingForm: document.querySelector("#holding-form"),
   holdingFormTitle: document.querySelector("#holding-form-title"),
   saveHoldingBtn: document.querySelector("#save-holding-btn"),
@@ -98,6 +100,7 @@ let saveTimer = null;
 let isHydratingFromServer = false;
 let storageMode = "";
 let isHoldingFormOpen = false;
+let isHeroPanelOpen = false;
 let isProfilePanelOpen = false;
 let isAdminPanelOpen = false;
 let adminUsers = [];
@@ -359,6 +362,15 @@ function renderPortfolios() {
   });
 }
 
+function syncHeroPanelVisibility() {
+  elements.heroPanelBody.classList.toggle("hidden", !isHeroPanelOpen);
+  elements.toggleHeroPanelBtn.setAttribute(
+    "aria-expanded",
+    String(isHeroPanelOpen)
+  );
+  elements.toggleHeroPanelBtn.textContent = isHeroPanelOpen ? "Hide" : "Show";
+}
+
 function syncProfilePanelVisibility() {
   elements.profilePanelBody.classList.toggle("hidden", !isProfilePanelOpen);
   elements.toggleProfilePanelBtn.setAttribute(
@@ -387,6 +399,11 @@ function toggleAdminPanel() {
 function toggleProfilePanel() {
   isProfilePanelOpen = !isProfilePanelOpen;
   syncProfilePanelVisibility();
+}
+
+function toggleHeroPanel() {
+  isHeroPanelOpen = !isHeroPanelOpen;
+  syncHeroPanelVisibility();
 }
 
 function reorderHoldings(draggedSymbol, targetSymbol, insertAfter = false) {
@@ -1257,6 +1274,7 @@ elements.logoutBtn.addEventListener("click", async () => {
   }
 });
 
+elements.toggleHeroPanelBtn.addEventListener("click", toggleHeroPanel);
 elements.toggleProfilePanelBtn.addEventListener("click", toggleProfilePanel);
 elements.themeToggleBtn.addEventListener("click", toggleTheme);
 elements.toggleAdminPanelBtn.addEventListener("click", toggleAdminPanel);
@@ -1340,6 +1358,7 @@ elements.cancelHoldingEditBtn.addEventListener("click", () => {
 });
 
 syncHoldingFormVisibility();
+syncHeroPanelVisibility();
 syncProfilePanelVisibility();
 applyTheme(getStoredTheme());
 render();

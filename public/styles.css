@@ -530,6 +530,11 @@ textarea {
 .hero {
   margin-top: 20px;
   padding: 28px;
+  display: grid;
+  gap: 18px;
+}
+
+.hero-panel-body {
   display: flex;
   justify-content: space-between;
   gap: 20px;

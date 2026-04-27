@@ -193,26 +193,41 @@
         </section>
 
         <section class="hero panel">
-          <div>
-            <p class="eyebrow">Live Overview</p>
-            <div class="hero-title-row">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Live Overview</p>
               <h2 id="portfolio-name">Loading...</h2>
-              <button id="rename-portfolio-btn" class="ghost-button" type="button">
-                Rename
+            </div>
+            <button
+              id="toggle-hero-panel-btn"
+              class="ghost-button"
+              type="button"
+              aria-expanded="false"
+              aria-controls="hero-panel-body"
+            >
+              Show
+            </button>
+          </div>
+          <div id="hero-panel-body" class="hidden">
+            <div>
+              <div class="hero-title-row">
+                <button id="rename-portfolio-btn" class="ghost-button" type="button">
+                  Rename
+                </button>
+              </div>
+              <p id="portfolio-meta" class="muted"></p>
+              <div id="provider-banner" class="provider-banner hidden"></div>
+              <div id="storage-banner" class="storage-banner hidden"></div>
+              <p id="save-status" class="muted save-status">Loading saved portfolios...</p>
+            </div>
+            <div class="hero-actions">
+              <button id="refresh-btn" class="primary-button" type="button">
+                Refresh Prices
+              </button>
+              <button id="delete-portfolio-btn" class="ghost-button danger" type="button">
+                Delete Portfolio
               </button>
             </div>
-            <p id="portfolio-meta" class="muted"></p>
-            <div id="provider-banner" class="provider-banner hidden"></div>
-            <div id="storage-banner" class="storage-banner hidden"></div>
-            <p id="save-status" class="muted save-status">Loading saved portfolios...</p>
-          </div>
-          <div class="hero-actions">
-            <button id="refresh-btn" class="primary-button" type="button">
-              Refresh Prices
-            </button>
-            <button id="delete-portfolio-btn" class="ghost-button danger" type="button">
-              Delete Portfolio
-            </button>
           </div>
         </section>
 
