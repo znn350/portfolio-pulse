@@ -636,12 +636,18 @@ th {
   color: var(--muted);
 }
 
+#day-return.positive,
+#day-return.positive .metric-primary,
+#day-return.positive .metric-secondary,
 #total-return.positive,
 #total-return.positive .metric-primary,
 #total-return.positive .metric-secondary {
   color: var(--positive);
 }
 
+#day-return.negative,
+#day-return.negative .metric-primary,
+#day-return.negative .metric-secondary,
 #total-return.negative,
 #total-return.negative .metric-primary,
 #total-return.negative .metric-secondary {

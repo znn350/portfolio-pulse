@@ -56,6 +56,7 @@ const elements = {
   holdingsTable: document.querySelector("#holdings-table"),
   refreshedAt: document.querySelector("#refreshed-at"),
   totalValue: document.querySelector("#total-value"),
+  dayReturn: document.querySelector("#day-return"),
   totalReturn: document.querySelector("#total-return"),
   totalReturnCard: document.querySelector("#total-return-card"),
   annualDividend: document.querySelector("#annual-dividend"),
@@ -394,10 +395,17 @@ function renderSummary() {
   }
 
   const summary = lastSnapshot.summary || {};
+  const dayReturnClass =
+    (summary.totalDayReturn || 0) >= 0 ? "positive" : "negative";
   const returnClass =
     (summary.totalReturn || 0) >= 0 ? "positive" : "negative";
 
   elements.totalValue.textContent = formatCurrency(summary.totalMarketValue || 0);
+  elements.dayReturn.innerHTML = `
+    <span class="metric-primary">${formatCurrency(summary.totalDayReturn || 0)}</span>
+    <span class="metric-secondary">${formatPercent(summary.totalDayReturnPercent)}</span>
+  `;
+  elements.dayReturn.className = dayReturnClass;
   elements.totalReturn.innerHTML = `
     <span class="metric-primary">${formatCurrency(summary.totalReturn || 0)}</span>
     <span class="metric-secondary">${formatPercent(summary.totalReturnPercent)}</span>
@@ -826,6 +834,8 @@ async function refreshSnapshot() {
       summary: {
         totalMarketValue: 0,
         totalCost: 0,
+        totalDayReturn: 0,
+        totalDayReturnPercent: null,
         totalReturn: 0,
         totalReturnPercent: null,
         annualDividendIncome: 0,

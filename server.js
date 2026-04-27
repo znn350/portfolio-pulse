@@ -1230,6 +1230,8 @@ app.post("/api/portfolio-snapshot", async (req, res) => {
       summary: {
         totalMarketValue: 0,
         totalCost: 0,
+        totalDayReturn: 0,
+        totalDayReturnPercent: null,
         totalReturn: 0,
         totalReturnPercent: null,
         annualDividendIncome: 0,
@@ -1263,16 +1265,21 @@ app.post("/api/portfolio-snapshot", async (req, res) => {
       (accumulator, holding) => {
         accumulator.totalMarketValue += holding.marketValue;
         accumulator.totalCost += holding.totalCost;
+        accumulator.totalDayReturn += holding.dayChange || 0;
         accumulator.annualDividendIncome += holding.annualDividendIncome;
         return accumulator;
       },
       {
         totalMarketValue: 0,
         totalCost: 0,
+        totalDayReturn: 0,
         annualDividendIncome: 0,
       }
     );
 
+    const previousMarketValue = summary.totalMarketValue - summary.totalDayReturn;
+    summary.totalDayReturnPercent =
+      previousMarketValue > 0 ? summary.totalDayReturn / previousMarketValue : null;
     summary.totalReturn = summary.totalMarketValue - summary.totalCost;
     summary.totalReturnPercent =
       summary.totalCost > 0 ? summary.totalReturn / summary.totalCost : null;
