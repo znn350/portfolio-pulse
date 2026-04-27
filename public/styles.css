@@ -320,7 +320,7 @@ textarea {
   background: var(--portfolio-item-bg);
   border-radius: 18px;
   padding: 14px;
-  color: rgba(47, 36, 28, 0.74);
+  color: var(--text);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -362,7 +362,7 @@ textarea {
 }
 
 .portfolio-item-count {
-  color: rgba(108, 90, 77, 0.86);
+  color: var(--muted);
   font-size: 0.9rem;
 }
 
