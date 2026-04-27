@@ -86,6 +86,7 @@ let lastMarketSnapshot = {
   items: [],
   refreshedAt: null,
 };
+let portfolioPerformanceById = {};
 let searchTimer = null;
 let selectedSearchResult = null;
 let saveTimer = null;
@@ -142,6 +143,7 @@ function resetStateForSignedOutUser() {
     items: [],
     refreshedAt: null,
   };
+  portfolioPerformanceById = {};
   storageMode = "";
   selectedSearchResult = null;
   isAdminPanelOpen = false;
@@ -260,6 +262,15 @@ function formatPercent(value) {
   return `${(value * 100).toFixed(2)}%`;
 }
 
+function formatSignedPercent(value) {
+  if (typeof value !== "number") {
+    return "-";
+  }
+
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${(value * 100).toFixed(2)}%`;
+}
+
 function formatDate(value) {
   if (!value) {
     return "-";
@@ -283,8 +294,21 @@ function renderPortfolios() {
   state.portfolios.forEach((portfolio) => {
     const fragment = elements.portfolioTemplate.content.cloneNode(true);
     const button = fragment.querySelector(".portfolio-item");
+    const performance = portfolioPerformanceById[portfolio.id];
+    const performanceElement = fragment.querySelector(".portfolio-item-performance");
     button.classList.toggle("active", portfolio.id === selected.id);
     fragment.querySelector(".portfolio-item-name").textContent = portfolio.name;
+    performanceElement.textContent =
+      typeof performance?.totalDayReturnPercent === "number"
+        ? formatSignedPercent(performance.totalDayReturnPercent)
+        : "-";
+    performanceElement.className = `portfolio-item-performance${
+      typeof performance?.totalDayReturnPercent === "number"
+        ? performance.totalDayReturnPercent >= 0
+          ? " positive"
+          : " negative"
+        : ""
+    }`;
     fragment.querySelector(".portfolio-item-count").textContent = `${portfolio.holdings.length} holdings`;
     button.addEventListener("click", () => {
       resetHoldingForm();
@@ -734,6 +758,49 @@ function setAdminStatus(message, isError = false) {
   elements.adminStatus.className = isError ? "form-status negative" : "form-status";
 }
 
+function createEmptySnapshot() {
+  return {
+    holdings: [],
+    summary: {
+      totalMarketValue: 0,
+      totalCost: 0,
+      totalDayReturn: 0,
+      totalDayReturnPercent: null,
+      totalReturn: 0,
+      totalReturnPercent: null,
+      annualDividendIncome: 0,
+    },
+    dataProviders: [],
+    refreshedAt: null,
+  };
+}
+
+async function fetchPortfolioSnapshot(portfolio) {
+  if (!portfolio?.holdings?.length) {
+    return createEmptySnapshot();
+  }
+
+  const response = await authFetch("/api/portfolio-snapshot", {
+    method: "POST",
+    body: JSON.stringify({ holdings: portfolio.holdings }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response, "Snapshot request failed"));
+  }
+
+  return response.json();
+}
+
+function cachePortfolioPerformance(portfolioId, snapshot) {
+  portfolioPerformanceById[portfolioId] = {
+    totalDayReturnPercent:
+      typeof snapshot?.summary?.totalDayReturnPercent === "number"
+        ? snapshot.summary.totalDayReturnPercent
+        : null,
+  };
+}
+
 function addPortfolio() {
   const name = window.prompt("Portfolio name");
   if (!name) {
@@ -750,6 +817,7 @@ function addPortfolio() {
   setHoldingFormOpen(false);
   state.portfolios.push(portfolio);
   state.selectedPortfolioId = portfolio.id;
+  portfolioPerformanceById[portfolio.id] = { totalDayReturnPercent: null };
   saveState();
   lastSnapshot = { holdings: [], summary: {}, dataProviders: [], refreshedAt: null };
   render();
@@ -795,6 +863,7 @@ function deleteSelectedPortfolio() {
   state.portfolios = state.portfolios.filter(
     (portfolio) => portfolio.id !== selected.id
   );
+  delete portfolioPerformanceById[selected.id];
   state.selectedPortfolioId = state.portfolios[0].id;
   saveState();
   lastSnapshot = { holdings: [], summary: {}, dataProviders: [], refreshedAt: null };
@@ -852,41 +921,60 @@ async function refreshSnapshot() {
 
   const portfolio = getSelectedPortfolio();
 
-  if (!portfolio?.holdings?.length) {
-    lastSnapshot = {
-      holdings: [],
-      summary: {
-        totalMarketValue: 0,
-        totalCost: 0,
-        totalDayReturn: 0,
-        totalDayReturnPercent: null,
-        totalReturn: 0,
-        totalReturnPercent: null,
-        annualDividendIncome: 0,
-      },
-      dataProviders: [],
-      refreshedAt: null,
-    };
-    render();
-    return;
-  }
-
   elements.refreshedAt.textContent = "Refreshing live prices...";
 
   try {
-    const response = await authFetch("/api/portfolio-snapshot", {
-      method: "POST",
-      body: JSON.stringify({ holdings: portfolio.holdings }),
-    });
-
-    if (!response.ok) {
-      throw new Error(await readErrorMessage(response, "Snapshot request failed"));
-    }
-
-    lastSnapshot = await response.json();
+    lastSnapshot = await fetchPortfolioSnapshot(portfolio);
+    cachePortfolioPerformance(portfolio.id, lastSnapshot);
     render();
   } catch (error) {
     console.error(error);
+    elements.refreshedAt.textContent = "Live refresh failed. Try again.";
+  }
+}
+
+async function refreshPortfolioPerformanceSummaries() {
+  if (!currentUser) {
+    return;
+  }
+
+  const selectedPortfolioId = getSelectedPortfolio()?.id;
+  const snapshots = await Promise.all(
+    state.portfolios.map(async (portfolio) => {
+      try {
+        const snapshot = await fetchPortfolioSnapshot(portfolio);
+        return { portfolioId: portfolio.id, snapshot };
+      } catch (error) {
+        console.error(error);
+        return { portfolioId: portfolio.id, error };
+      }
+    })
+  );
+
+  let selectedSnapshot = null;
+  let didSelectedSnapshotFail = false;
+
+  snapshots.forEach((entry) => {
+    if (entry.error) {
+      if (entry.portfolioId === selectedPortfolioId) {
+        didSelectedSnapshotFail = true;
+      }
+      return;
+    }
+
+    cachePortfolioPerformance(entry.portfolioId, entry.snapshot);
+    if (entry.portfolioId === selectedPortfolioId) {
+      selectedSnapshot = entry.snapshot;
+    }
+  });
+
+  if (selectedSnapshot) {
+    lastSnapshot = selectedSnapshot;
+  }
+
+  render();
+
+  if (didSelectedSnapshotFail) {
     elements.refreshedAt.textContent = "Live refresh failed. Try again.";
   }
 }
@@ -913,7 +1001,8 @@ async function refreshMarketOverview() {
 }
 
 async function refreshAllSnapshots() {
-  await Promise.all([refreshMarketOverview(), refreshSnapshot()]);
+  elements.refreshedAt.textContent = "Refreshing live prices...";
+  await Promise.all([refreshMarketOverview(), refreshPortfolioPerformanceSummaries()]);
 }
 
 async function pushStateToServer() {
@@ -970,6 +1059,7 @@ async function loadStateFromServer() {
     state = payload.state;
     storageMode = payload.storageMode || "";
     cacheStateLocally();
+    portfolioPerformanceById = {};
     lastSnapshot = {
       holdings: [],
       summary: {},

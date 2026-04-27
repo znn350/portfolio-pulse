@@ -297,11 +297,22 @@ textarea {
   font-weight: 700;
 }
 
+.portfolio-item-primary {
+  display: grid;
+  gap: 4px;
+}
+
+.portfolio-item-performance {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
 .portfolio-item-count {
   color: rgba(108, 90, 77, 0.86);
   font-size: 0.9rem;
 }
 
+.portfolio-item.active .portfolio-item-performance,
 .portfolio-item.active .portfolio-item-count {
   color: rgba(255, 253, 249, 0.82);
 }
