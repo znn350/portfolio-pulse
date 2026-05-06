@@ -132,7 +132,7 @@ function normalizeYahooRatio(value) {
     return null;
   }
 
-  return numeric > 1 ? numeric / 100 : numeric;
+  return numeric / 100;
 }
 
 function getDisplayName(result) {
