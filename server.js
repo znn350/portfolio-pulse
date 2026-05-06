@@ -126,6 +126,15 @@ function normalizeYahooYield(value) {
   return numeric > 1 ? numeric / 100 : numeric;
 }
 
+function normalizeYahooRatio(value) {
+  const numeric = toNumber(value);
+  if (numeric == null) {
+    return null;
+  }
+
+  return numeric > 1 ? numeric / 100 : numeric;
+}
+
 function getDisplayName(result) {
   return (
     result.shortName ||
@@ -894,13 +903,49 @@ async function getYahooDividendSnapshot(symbol) {
   };
 }
 
+async function getYahooExpenseRatioSnapshot(symbol) {
+  try {
+    const quote = await yahooFinance.quote(symbol);
+    const quoteExpenseRatio = normalizeYahooRatio(quote.netExpenseRatio);
+
+    if (quoteExpenseRatio != null) {
+      return {
+        expenseRatio: quoteExpenseRatio,
+      };
+    }
+
+    const summary = await yahooFinance.quoteSummary(symbol, {
+      modules: ["defaultKeyStatistics", "fundProfile"],
+    });
+
+    return {
+      expenseRatio:
+        normalizeYahooRatio(
+          summary?.fundProfile?.annualReportExpenseRatio
+        ) ??
+        normalizeYahooRatio(
+          summary?.defaultKeyStatistics?.annualReportExpenseRatio
+        ) ??
+        null,
+    };
+  } catch (error) {
+    return {
+      expenseRatio: null,
+    };
+  }
+}
+
 async function getHoldingMarketData(holding) {
   const symbol = normalizeSymbol(holding.symbol);
   const yahooData = await getYahooQuoteSnapshot(symbol);
   const yahooDividendData = await getYahooDividendSnapshot(symbol);
+  const yahooExpenseData = fundLikeQuoteTypes.has(yahooData.quoteType)
+    ? await getYahooExpenseRatioSnapshot(symbol)
+    : { expenseRatio: null };
   return {
     ...yahooData,
     ...yahooDividendData,
+    ...yahooExpenseData,
     dataProvider: "Yahoo Finance",
   };
 }
@@ -913,6 +958,7 @@ function buildHoldingSnapshot(holding, marketData) {
   const dayChangePercent = toNumber(marketData.dayChangePercent);
   const dividendRate = toNumber(marketData.dividendRate) ?? 0;
   const dividendYield = toNumber(marketData.dividendYield) ?? 0;
+  const expenseRatio = toNumber(marketData.expenseRatio);
 
   const marketValue = shares * price;
   const dayChange = perShareDayChange == null ? null : shares * perShareDayChange;
@@ -941,6 +987,7 @@ function buildHoldingSnapshot(holding, marketData) {
     totalReturnPercent,
     dividendRate,
     dividendYield,
+    expenseRatio,
     annualDividendIncome,
     exDividendDate: marketData.exDividendDate || null,
     marketTime: marketData.marketTime || null,

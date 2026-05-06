@@ -766,7 +766,7 @@ function renderHoldings() {
 
   if (!selected.holdings.length) {
     elements.holdingsTable.innerHTML =
-      '<tr><td colspan="11" class="empty-state">No holdings yet. Add a stock or mutual fund from the form on the left.</td></tr>';
+      '<tr><td colspan="12" class="empty-state">No holdings yet. Add a stock or mutual fund from the form on the left.</td></tr>';
     return;
   }
 
@@ -776,6 +776,8 @@ function renderHoldings() {
       const returnClass =
         (live?.totalReturn || 0) >= 0 ? "positive" : "negative";
       const yieldText = live ? formatPercent(live.dividendYield) : "-";
+      const expenseRatioText =
+        live?.expenseRatio != null ? formatPercent(live.expenseRatio) : "-";
 
       return `
         <tr class="holding-row" data-holding-symbol="${holding.symbol.toUpperCase()}" draggable="true">
@@ -813,6 +815,7 @@ function renderHoldings() {
             <div>${yieldText}</div>
             <div class="holding-name">${live?.exDividendDate ? `Ex-div ${formatDate(live.exDividendDate)}` : ""}</div>
           </td>
+          <td data-label="Expense Ratio">${expenseRatioText}</td>
           <td data-label="Annual Income">${live ? formatCurrency(live.annualDividendIncome, live.currency) : "-"}</td>
           <td data-label="Actions">
             <div class="table-actions">
