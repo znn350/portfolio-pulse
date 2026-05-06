@@ -1202,6 +1202,37 @@ app.get("/api/search", async (req, res) => {
   }
 });
 
+app.get("/api/quote", async (req, res) => {
+  const symbol = normalizeSymbol(req.query.symbol);
+
+  if (!symbol) {
+    return res.status(400).json({
+      error: "A symbol is required.",
+    });
+  }
+
+  try {
+    const quote = await getYahooQuoteSnapshot(symbol);
+
+    if (quote.quoteType && !allowedQuoteTypes.has(quote.quoteType)) {
+      return res.status(404).json({
+        error: "That symbol is not supported for holdings.",
+      });
+    }
+
+    return res.json({
+      quote,
+      dataProvider: "Yahoo Finance",
+      refreshedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      error: "Unable to load a live quote right now.",
+      details: error.message,
+    });
+  }
+});
+
 app.get("/api/market-overview", async (req, res) => {
   try {
     const items = await Promise.all(

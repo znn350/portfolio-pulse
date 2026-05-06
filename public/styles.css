@@ -147,6 +147,11 @@ textarea {
   color: var(--muted);
 }
 
+.symbol-preview {
+  margin-top: -2px;
+  font-size: 0.92rem;
+}
+
 .page-shell {
   display: grid;
   grid-template-columns: 320px 1fr;

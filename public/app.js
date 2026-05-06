@@ -73,6 +73,7 @@ const elements = {
   cancelHoldingEditBtn: document.querySelector("#cancel-holding-edit-btn"),
   toggleHoldingFormBtn: document.querySelector("#toggle-holding-form-btn"),
   symbolInput: document.querySelector("#symbol-input"),
+  symbolPreview: document.querySelector("#symbol-preview"),
   searchResults: document.querySelector("#search-results"),
   refreshBtn: document.querySelector("#refresh-btn"),
   newPortfolioBtn: document.querySelector("#new-portfolio-btn"),
@@ -95,6 +96,7 @@ let lastMarketSnapshot = {
 };
 let portfolioPerformanceById = {};
 let searchTimer = null;
+let quotePreviewTimer = null;
 let selectedSearchResult = null;
 let saveTimer = null;
 let isHydratingFromServer = false;
@@ -107,6 +109,7 @@ let adminUsers = [];
 let draggedHoldingSymbol = null;
 let editingHoldingSymbol = null;
 let currentTheme = "light";
+let quotePreviewRequestId = 0;
 
 function getStoredTheme() {
   const savedTheme = localStorage.getItem(themeStorageKey);
@@ -568,6 +571,26 @@ function setSaveStatus(message, isError = false) {
   elements.saveStatus.className = isError ? "save-status negative" : "muted save-status";
 }
 
+function setSymbolPreview(message, isError = false) {
+  elements.symbolPreview.textContent = message;
+  elements.symbolPreview.className = isError
+    ? "form-status symbol-preview negative"
+    : "form-status symbol-preview";
+}
+
+function renderSymbolPreview(quote) {
+  const updatedText = quote.marketTime
+    ? ` Updated ${new Date(quote.marketTime).toLocaleTimeString()}.`
+    : "";
+  const nameText =
+    quote.name && quote.name !== quote.symbol ? ` ${quote.name}.` : "";
+  const exchangeText = quote.exchange ? ` ${quote.exchange}.` : "";
+
+  setSymbolPreview(
+    `${quote.symbol}: ${formatCurrency(quote.price, quote.currency)} per share.${nameText}${exchangeText}${updatedText}`.trim()
+  );
+}
+
 function syncHoldingFormVisibility() {
   elements.holdingForm.classList.toggle("hidden", !isHoldingFormOpen);
   elements.toggleHoldingFormBtn.setAttribute("aria-expanded", String(isHoldingFormOpen));
@@ -599,8 +622,11 @@ function toggleHoldingForm() {
 function resetHoldingForm() {
   editingHoldingSymbol = null;
   selectedSearchResult = null;
+  quotePreviewRequestId += 1;
+  clearTimeout(quotePreviewTimer);
   elements.holdingForm.reset();
   elements.searchResults.innerHTML = "";
+  setSymbolPreview("Enter a symbol to see the current market price.");
   syncHoldingFormVisibility();
 }
 
@@ -629,6 +655,7 @@ function startEditingHolding(symbol) {
   elements.holdingForm.elements.purchaseDate.value = holding.purchaseDate || "";
   elements.holdingForm.elements.notes.value = holding.notes || "";
   setHoldingFormOpen(true);
+  loadQuotePreview(holding.symbol);
 }
 
 async function readErrorMessage(response, fallbackMessage) {
@@ -1209,10 +1236,50 @@ async function searchSymbols(query) {
           name: button.dataset.name || "",
         };
         elements.searchResults.innerHTML = "";
+        loadQuotePreview(button.dataset.symbol);
       });
     });
   } catch (error) {
     console.error(error);
+  }
+}
+
+async function loadQuotePreview(symbol) {
+  const normalizedSymbol = String(symbol || "").trim().toUpperCase();
+  const requestId = ++quotePreviewRequestId;
+
+  if (!currentUser || !normalizedSymbol) {
+    setSymbolPreview("Enter a symbol to see the current market price.");
+    return;
+  }
+
+  setSymbolPreview(`Loading live price for ${normalizedSymbol}...`);
+
+  try {
+    const response = await authFetch(
+      `/api/quote?symbol=${encodeURIComponent(normalizedSymbol)}`,
+      {
+        headers: {},
+      }
+    );
+
+    if (requestId !== quotePreviewRequestId) {
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(await readErrorMessage(response, "Unable to load live quote"));
+    }
+
+    const payload = await response.json();
+    renderSymbolPreview(payload.quote);
+  } catch (error) {
+    if (requestId !== quotePreviewRequestId) {
+      return;
+    }
+
+    console.error(error);
+    setSymbolPreview(error.message, true);
   }
 }
 
@@ -1334,16 +1401,33 @@ elements.holdingForm.addEventListener("submit", async (event) => {
 });
 
 elements.symbolInput.addEventListener("input", (event) => {
+  const symbol = String(event.target.value || "").trim();
+
   if (
     !selectedSearchResult ||
     selectedSearchResult.symbol.toUpperCase() !==
-      String(event.target.value || "").trim().toUpperCase()
+      symbol.toUpperCase()
   ) {
     selectedSearchResult = null;
   }
+
   clearTimeout(searchTimer);
+  clearTimeout(quotePreviewTimer);
+
+  if (!symbol) {
+    quotePreviewRequestId += 1;
+    setSymbolPreview("Enter a symbol to see the current market price.");
+  } else if (symbol.length < 2) {
+    quotePreviewRequestId += 1;
+    setSymbolPreview("Keep typing to load a live market price.");
+  } else {
+    quotePreviewTimer = setTimeout(() => {
+      loadQuotePreview(symbol);
+    }, 350);
+  }
+
   searchTimer = setTimeout(() => {
-    searchSymbols(event.target.value);
+    searchSymbols(symbol);
   }, 250);
 });
 
