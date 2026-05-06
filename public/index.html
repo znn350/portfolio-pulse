@@ -101,9 +101,36 @@
               <div id="symbol-preview" class="form-status symbol-preview">Enter a symbol to see the current market price.</div>
               <div id="search-results" class="search-results"></div>
               <label>
-                Shares
-                <input name="shares" type="number" min="0" step="0.0001" required />
+                <span class="field-label-row">
+                  <span>Shares</span>
+                  <button
+                    id="share-calculator-toggle-btn"
+                    class="ghost-button field-helper-button"
+                    type="button"
+                    aria-expanded="false"
+                    aria-controls="share-calculator-panel"
+                  >
+                    Calculator
+                  </button>
+                </span>
+                <input id="shares-input" name="shares" type="number" min="0" step="0.0001" required />
               </label>
+              <div id="share-calculator-panel" class="share-calculator hidden">
+                <label>
+                  Total Amount to Invest
+                  <input
+                    id="share-total-amount-input"
+                    name="shareTotalAmount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="1000.00"
+                  />
+                </label>
+                <div id="share-calculator-status" class="form-status share-calculator-status">
+                  Load a symbol price to calculate shares automatically.
+                </div>
+              </div>
               <label>
                 Cost Basis / Share
                 <input name="costBasis" type="number" min="0" step="0.01" required />

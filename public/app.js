@@ -74,6 +74,11 @@ const elements = {
   toggleHoldingFormBtn: document.querySelector("#toggle-holding-form-btn"),
   symbolInput: document.querySelector("#symbol-input"),
   symbolPreview: document.querySelector("#symbol-preview"),
+  sharesInput: document.querySelector("#shares-input"),
+  shareCalculatorToggleBtn: document.querySelector("#share-calculator-toggle-btn"),
+  shareCalculatorPanel: document.querySelector("#share-calculator-panel"),
+  shareTotalAmountInput: document.querySelector("#share-total-amount-input"),
+  shareCalculatorStatus: document.querySelector("#share-calculator-status"),
   searchResults: document.querySelector("#search-results"),
   refreshBtn: document.querySelector("#refresh-btn"),
   newPortfolioBtn: document.querySelector("#new-portfolio-btn"),
@@ -110,6 +115,8 @@ let draggedHoldingSymbol = null;
 let editingHoldingSymbol = null;
 let currentTheme = "light";
 let quotePreviewRequestId = 0;
+let isShareCalculatorOpen = false;
+let currentQuotePreview = null;
 
 function getStoredTheme() {
   const savedTheme = localStorage.getItem(themeStorageKey);
@@ -578,6 +585,64 @@ function setSymbolPreview(message, isError = false) {
     : "form-status symbol-preview";
 }
 
+function setShareCalculatorStatus(message, isError = false) {
+  elements.shareCalculatorStatus.textContent = message;
+  elements.shareCalculatorStatus.className = isError
+    ? "form-status share-calculator-status negative"
+    : "form-status share-calculator-status";
+}
+
+function formatShareCount(value) {
+  return Number(value.toFixed(4)).toString();
+}
+
+function syncShareCalculatorVisibility() {
+  elements.shareCalculatorPanel.classList.toggle("hidden", !isShareCalculatorOpen);
+  elements.shareCalculatorToggleBtn.setAttribute(
+    "aria-expanded",
+    String(isShareCalculatorOpen)
+  );
+}
+
+function setShareCalculatorOpen(nextOpen) {
+  isShareCalculatorOpen = nextOpen;
+  syncShareCalculatorVisibility();
+}
+
+function getCurrentQuotePrice() {
+  const price = Number(currentQuotePreview?.price);
+  return Number.isFinite(price) && price > 0 ? price : null;
+}
+
+function syncSharesFromCalculatorTotal() {
+  const totalAmount = Number(elements.shareTotalAmountInput.value);
+  const currentPrice = getCurrentQuotePrice();
+
+  if (!elements.shareTotalAmountInput.value) {
+    setShareCalculatorStatus("Enter a total amount to calculate shares.");
+    return;
+  }
+
+  if (!Number.isFinite(totalAmount) || totalAmount < 0) {
+    setShareCalculatorStatus("Enter a valid total amount.", true);
+    return;
+  }
+
+  if (!currentPrice) {
+    setShareCalculatorStatus("Load a live symbol price before calculating shares.", true);
+    return;
+  }
+
+  const calculatedShares = totalAmount / currentPrice;
+  elements.sharesInput.value = formatShareCount(calculatedShares);
+  setShareCalculatorStatus(
+    `${formatCurrency(totalAmount, currentQuotePreview.currency)} at ${formatCurrency(
+      currentPrice,
+      currentQuotePreview.currency
+    )} per share = ${formatShareCount(calculatedShares)} shares.`
+  );
+}
+
 function renderSymbolPreview(quote) {
   const updatedText = quote.marketTime
     ? ` Updated ${new Date(quote.marketTime).toLocaleTimeString()}.`
@@ -589,6 +654,7 @@ function renderSymbolPreview(quote) {
   setSymbolPreview(
     `${quote.symbol}: ${formatCurrency(quote.price, quote.currency)} per share.${nameText}${exchangeText}${updatedText}`.trim()
   );
+  syncSharesFromCalculatorTotal();
 }
 
 function syncHoldingFormVisibility() {
@@ -622,11 +688,14 @@ function toggleHoldingForm() {
 function resetHoldingForm() {
   editingHoldingSymbol = null;
   selectedSearchResult = null;
+  currentQuotePreview = null;
   quotePreviewRequestId += 1;
   clearTimeout(quotePreviewTimer);
   elements.holdingForm.reset();
   elements.searchResults.innerHTML = "";
   setSymbolPreview("Enter a symbol to see the current market price.");
+  setShareCalculatorOpen(false);
+  setShareCalculatorStatus("Load a symbol price to calculate shares automatically.");
   syncHoldingFormVisibility();
 }
 
@@ -654,6 +723,8 @@ function startEditingHolding(symbol) {
   elements.holdingForm.elements.costBasis.value = holding.costBasis;
   elements.holdingForm.elements.purchaseDate.value = holding.purchaseDate || "";
   elements.holdingForm.elements.notes.value = holding.notes || "";
+  elements.shareTotalAmountInput.value = "";
+  setShareCalculatorStatus("Load a symbol price to calculate shares automatically.");
   setHoldingFormOpen(true);
   loadQuotePreview(holding.symbol);
 }
@@ -1249,7 +1320,9 @@ async function loadQuotePreview(symbol) {
   const requestId = ++quotePreviewRequestId;
 
   if (!currentUser || !normalizedSymbol) {
+    currentQuotePreview = null;
     setSymbolPreview("Enter a symbol to see the current market price.");
+    syncSharesFromCalculatorTotal();
     return;
   }
 
@@ -1272,6 +1345,7 @@ async function loadQuotePreview(symbol) {
     }
 
     const payload = await response.json();
+    currentQuotePreview = payload.quote;
     renderSymbolPreview(payload.quote);
   } catch (error) {
     if (requestId !== quotePreviewRequestId) {
@@ -1279,7 +1353,9 @@ async function loadQuotePreview(symbol) {
     }
 
     console.error(error);
+    currentQuotePreview = null;
     setSymbolPreview(error.message, true);
+    syncSharesFromCalculatorTotal();
   }
 }
 
@@ -1400,6 +1476,31 @@ elements.holdingForm.addEventListener("submit", async (event) => {
   await refreshSnapshot();
 });
 
+elements.shareCalculatorToggleBtn.addEventListener("click", () => {
+  const nextOpen = !isShareCalculatorOpen;
+  setShareCalculatorOpen(nextOpen);
+
+  if (nextOpen) {
+    if (!elements.shareTotalAmountInput.value && elements.sharesInput.value) {
+      const currentPrice = getCurrentQuotePrice();
+      const currentShares = Number(elements.sharesInput.value);
+
+      if (currentPrice && Number.isFinite(currentShares) && currentShares > 0) {
+        elements.shareTotalAmountInput.value = (currentPrice * currentShares).toFixed(2);
+      }
+    }
+
+    syncSharesFromCalculatorTotal();
+    window.requestAnimationFrame(() => {
+      elements.shareTotalAmountInput.focus();
+    });
+  }
+});
+
+elements.shareTotalAmountInput.addEventListener("input", () => {
+  syncSharesFromCalculatorTotal();
+});
+
 elements.symbolInput.addEventListener("input", (event) => {
   const symbol = String(event.target.value || "").trim();
 
@@ -1415,11 +1516,15 @@ elements.symbolInput.addEventListener("input", (event) => {
   clearTimeout(quotePreviewTimer);
 
   if (!symbol) {
+    currentQuotePreview = null;
     quotePreviewRequestId += 1;
     setSymbolPreview("Enter a symbol to see the current market price.");
+    syncSharesFromCalculatorTotal();
   } else if (symbol.length < 2) {
+    currentQuotePreview = null;
     quotePreviewRequestId += 1;
     setSymbolPreview("Keep typing to load a live market price.");
+    syncSharesFromCalculatorTotal();
   } else {
     quotePreviewTimer = setTimeout(() => {
       loadQuotePreview(symbol);
@@ -1441,6 +1546,7 @@ elements.cancelHoldingEditBtn.addEventListener("click", () => {
   setHoldingFormOpen(false);
 });
 
+syncShareCalculatorVisibility();
 syncHoldingFormVisibility();
 syncHeroPanelVisibility();
 syncProfilePanelVisibility();
