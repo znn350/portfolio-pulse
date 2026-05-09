@@ -319,6 +319,7 @@ textarea {
 }
 
 .portfolio-item {
+  position: relative;
   width: 100%;
   text-align: left;
   border: 1px solid rgba(79, 55, 38, 0.08);
@@ -335,6 +336,7 @@ textarea {
     background 0.18s ease,
     color 0.18s ease,
     box-shadow 0.18s ease;
+  cursor: grab;
 }
 
 .portfolio-item:hover {
@@ -374,6 +376,49 @@ textarea {
 .portfolio-item.active .portfolio-item-performance,
 .portfolio-item.active .portfolio-item-count {
   color: rgba(255, 253, 249, 0.82);
+}
+
+.portfolio-item.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.portfolio-item.drag-target-before::before,
+.portfolio-item.drag-target-after::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.portfolio-item.drag-target-before::before {
+  top: -2px;
+}
+
+.portfolio-item.drag-target-after::after {
+  bottom: -2px;
+}
+
+.portfolio-drag-handle {
+  display: inline-grid;
+  gap: 3px;
+  margin-right: 12px;
+  flex: 0 0 auto;
+}
+
+.portfolio-drag-handle span {
+  display: block;
+  width: 14px;
+  height: 2px;
+  border-radius: 999px;
+  background: rgba(108, 90, 77, 0.7);
+}
+
+.portfolio-item.active .portfolio-drag-handle span {
+  background: rgba(255, 253, 249, 0.82);
 }
 
 .holding-form {

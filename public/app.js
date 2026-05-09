@@ -113,6 +113,7 @@ let isProfilePanelOpen = false;
 let isAdminPanelOpen = false;
 let adminUsers = [];
 let draggedHoldingSymbol = null;
+let draggedPortfolioId = null;
 let editingHoldingSymbol = null;
 let currentTheme = "light";
 let quotePreviewRequestId = 0;
@@ -368,6 +369,8 @@ function renderPortfolios() {
     const button = fragment.querySelector(".portfolio-item");
     const performance = portfolioPerformanceById[portfolio.id];
     const performanceElement = fragment.querySelector(".portfolio-item-performance");
+    button.dataset.portfolioId = portfolio.id;
+    button.draggable = true;
     button.classList.toggle("active", portfolio.id === selected.id);
     fragment.querySelector(".portfolio-item-name").textContent = portfolio.name;
     performanceElement.textContent =
@@ -390,6 +393,68 @@ function renderPortfolios() {
       render();
       refreshSnapshot();
     });
+
+    button.addEventListener("dragstart", (event) => {
+      draggedPortfolioId = portfolio.id;
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", draggedPortfolioId);
+      }
+      button.classList.add("dragging");
+    });
+
+    button.addEventListener("dragend", () => {
+      draggedPortfolioId = null;
+      elements.portfolioList
+        .querySelectorAll(".portfolio-item")
+        .forEach((portfolioItem) => {
+          portfolioItem.classList.remove(
+            "dragging",
+            "drag-target-before",
+            "drag-target-after"
+          );
+        });
+    });
+
+    button.addEventListener("dragover", (event) => {
+      if (!draggedPortfolioId || draggedPortfolioId === portfolio.id) {
+        return;
+      }
+
+      event.preventDefault();
+      const bounds = button.getBoundingClientRect();
+      const insertAfter = event.clientY > bounds.top + bounds.height / 2;
+
+      elements.portfolioList
+        .querySelectorAll(".portfolio-item")
+        .forEach((portfolioItem) => {
+          if (portfolioItem !== button) {
+            portfolioItem.classList.remove("drag-target-before", "drag-target-after");
+          }
+        });
+
+      button.classList.toggle("drag-target-before", !insertAfter);
+      button.classList.toggle("drag-target-after", insertAfter);
+    });
+
+    button.addEventListener("dragleave", (event) => {
+      if (!button.contains(event.relatedTarget)) {
+        button.classList.remove("drag-target-before", "drag-target-after");
+      }
+    });
+
+    button.addEventListener("drop", (event) => {
+      if (!draggedPortfolioId || draggedPortfolioId === portfolio.id) {
+        return;
+      }
+
+      event.preventDefault();
+      const bounds = button.getBoundingClientRect();
+      const insertAfter = event.clientY > bounds.top + bounds.height / 2;
+      reorderPortfolios(draggedPortfolioId, portfolio.id, insertAfter);
+      render();
+    });
+
     elements.portfolioList.appendChild(fragment);
   });
 }
@@ -463,6 +528,33 @@ function reorderHoldings(draggedSymbol, targetSymbol, insertAfter = false) {
   }
 
   portfolio.holdings.splice(nextIndex, 0, movedHolding);
+  saveState();
+}
+
+function reorderPortfolios(draggedPortfolioIdValue, targetPortfolioId, insertAfter = false) {
+  const sourceIndex = state.portfolios.findIndex(
+    (portfolio) => portfolio.id === draggedPortfolioIdValue
+  );
+  const targetIndex = state.portfolios.findIndex(
+    (portfolio) => portfolio.id === targetPortfolioId
+  );
+
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    return;
+  }
+
+  const [movedPortfolio] = state.portfolios.splice(sourceIndex, 1);
+  let nextIndex = targetIndex;
+
+  if (sourceIndex < targetIndex) {
+    nextIndex -= 1;
+  }
+
+  if (insertAfter) {
+    nextIndex += 1;
+  }
+
+  state.portfolios.splice(nextIndex, 0, movedPortfolio);
   saveState();
 }
 
