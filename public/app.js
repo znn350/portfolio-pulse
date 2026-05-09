@@ -83,6 +83,7 @@ const elements = {
   refreshBtn: document.querySelector("#refresh-btn"),
   newPortfolioBtn: document.querySelector("#new-portfolio-btn"),
   renamePortfolioBtn: document.querySelector("#rename-portfolio-btn"),
+  duplicatePortfolioBtn: document.querySelector("#duplicate-portfolio-btn"),
   deletePortfolioBtn: document.querySelector("#delete-portfolio-btn"),
   portfolioTemplate: document.querySelector("#portfolio-item-template"),
 };
@@ -335,6 +336,27 @@ function formatDate(value) {
 
 function makeId() {
   return Math.random().toString(36).slice(2, 10);
+}
+
+function getUniquePortfolioName(baseName) {
+  const trimmedBaseName = String(baseName || "").trim() || "Portfolio Copy";
+  const existingNames = new Set(
+    state.portfolios.map((portfolio) => portfolio.name.trim().toLowerCase())
+  );
+
+  if (!existingNames.has(trimmedBaseName.toLowerCase())) {
+    return trimmedBaseName;
+  }
+
+  let copyIndex = 2;
+  let candidateName = `${trimmedBaseName} ${copyIndex}`;
+
+  while (existingNames.has(candidateName.toLowerCase())) {
+    copyIndex += 1;
+    candidateName = `${trimmedBaseName} ${copyIndex}`;
+  }
+
+  return candidateName;
 }
 
 function renderPortfolios() {
@@ -992,6 +1014,26 @@ function addPortfolio() {
   render();
 }
 
+function duplicateSelectedPortfolio() {
+  const selected = getSelectedPortfolio();
+  const duplicateName = getUniquePortfolioName(`${selected.name} Copy`);
+  const duplicatePortfolio = {
+    id: makeId(),
+    name: duplicateName,
+    holdings: selected.holdings.map((holding) => ({ ...holding })),
+  };
+
+  resetHoldingForm();
+  setHoldingFormOpen(false);
+  state.portfolios.push(duplicatePortfolio);
+  state.selectedPortfolioId = duplicatePortfolio.id;
+  portfolioPerformanceById[duplicatePortfolio.id] = { totalDayReturnPercent: null };
+  saveState();
+  lastSnapshot = { holdings: [], summary: {}, dataProviders: [], refreshedAt: null };
+  render();
+  refreshSnapshot();
+}
+
 function renameSelectedPortfolio() {
   const selected = getSelectedPortfolio();
   const nextName = window.prompt("Rename portfolio", selected.name);
@@ -1542,6 +1584,7 @@ elements.symbolInput.addEventListener("input", (event) => {
 elements.refreshBtn.addEventListener("click", refreshAllSnapshots);
 elements.newPortfolioBtn.addEventListener("click", addPortfolio);
 elements.renamePortfolioBtn.addEventListener("click", renameSelectedPortfolio);
+elements.duplicatePortfolioBtn.addEventListener("click", duplicateSelectedPortfolio);
 elements.deletePortfolioBtn.addEventListener("click", deleteSelectedPortfolio);
 elements.toggleHoldingFormBtn.addEventListener("click", toggleHoldingForm);
 elements.cancelHoldingEditBtn.addEventListener("click", () => {
