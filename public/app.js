@@ -56,6 +56,8 @@ const elements = {
   providerBanner: document.querySelector("#provider-banner"),
   storageBanner: document.querySelector("#storage-banner"),
   saveStatus: document.querySelector("#save-status"),
+  toggleMarketOverviewBtn: document.querySelector("#toggle-market-overview-btn"),
+  marketOverviewBody: document.querySelector("#market-overview-body"),
   marketOverview: document.querySelector("#market-overview"),
   marketRefreshedAt: document.querySelector("#market-refreshed-at"),
   holdingsTable: document.querySelector("#holdings-table"),
@@ -111,6 +113,7 @@ let isHoldingFormOpen = false;
 let isHeroPanelOpen = false;
 let isProfilePanelOpen = false;
 let isAdminPanelOpen = false;
+let isMarketOverviewOpen = false;
 let adminUsers = [];
 let draggedHoldingSymbol = null;
 let draggedPortfolioId = null;
@@ -468,6 +471,15 @@ function syncHeroPanelVisibility() {
   elements.toggleHeroPanelBtn.textContent = isHeroPanelOpen ? "Hide" : "Show";
 }
 
+function syncMarketOverviewVisibility() {
+  elements.marketOverviewBody.classList.toggle("hidden", !isMarketOverviewOpen);
+  elements.toggleMarketOverviewBtn.setAttribute(
+    "aria-expanded",
+    String(isMarketOverviewOpen)
+  );
+  elements.toggleMarketOverviewBtn.textContent = isMarketOverviewOpen ? "Hide" : "Show";
+}
+
 function syncProfilePanelVisibility() {
   elements.profilePanelBody.classList.toggle("hidden", !isProfilePanelOpen);
   elements.toggleProfilePanelBtn.setAttribute(
@@ -501,6 +513,11 @@ function toggleProfilePanel() {
 function toggleHeroPanel() {
   isHeroPanelOpen = !isHeroPanelOpen;
   syncHeroPanelVisibility();
+}
+
+function toggleMarketOverview() {
+  isMarketOverviewOpen = !isMarketOverviewOpen;
+  syncMarketOverviewVisibility();
 }
 
 function reorderHoldings(draggedSymbol, targetSymbol, insertAfter = false) {
@@ -1678,12 +1695,14 @@ elements.newPortfolioBtn.addEventListener("click", addPortfolio);
 elements.renamePortfolioBtn.addEventListener("click", renameSelectedPortfolio);
 elements.duplicatePortfolioBtn.addEventListener("click", duplicateSelectedPortfolio);
 elements.deletePortfolioBtn.addEventListener("click", deleteSelectedPortfolio);
+elements.toggleMarketOverviewBtn.addEventListener("click", toggleMarketOverview);
 elements.toggleHoldingFormBtn.addEventListener("click", toggleHoldingForm);
 elements.cancelHoldingEditBtn.addEventListener("click", () => {
   resetHoldingForm();
   setHoldingFormOpen(false);
 });
 
+syncMarketOverviewVisibility();
 syncShareCalculatorVisibility();
 syncHoldingFormVisibility();
 syncHeroPanelVisibility();

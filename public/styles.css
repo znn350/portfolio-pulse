@@ -540,6 +540,12 @@ textarea {
   font-size: 0.9rem;
 }
 
+.market-strip-actions {
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+}
+
 .market-overview {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -936,6 +942,10 @@ th {
 
   .market-strip-heading .muted {
     text-align: left;
+  }
+
+  .market-strip-actions {
+    justify-items: start;
   }
 
   .hero h2 {

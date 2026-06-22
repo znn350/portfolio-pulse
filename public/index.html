@@ -202,21 +202,34 @@
               <p class="eyebrow">Market Pulse</p>
               <h2>Major Indexes</h2>
             </div>
-            <p id="market-refreshed-at" class="muted">Loading market data...</p>
+            <div class="market-strip-actions">
+              <p id="market-refreshed-at" class="muted">Loading market data...</p>
+              <button
+                id="toggle-market-overview-btn"
+                class="ghost-button"
+                type="button"
+                aria-expanded="false"
+                aria-controls="market-overview-body"
+              >
+                Show
+              </button>
+            </div>
           </div>
-          <div id="market-overview" class="market-overview">
-            <article class="market-card loading">
-              <span>Loading</span>
-              <strong>-</strong>
-            </article>
-            <article class="market-card loading">
-              <span>Loading</span>
-              <strong>-</strong>
-            </article>
-            <article class="market-card loading">
-              <span>Loading</span>
-              <strong>-</strong>
-            </article>
+          <div id="market-overview-body" class="hidden">
+            <div id="market-overview" class="market-overview">
+              <article class="market-card loading">
+                <span>Loading</span>
+                <strong>-</strong>
+              </article>
+              <article class="market-card loading">
+                <span>Loading</span>
+                <strong>-</strong>
+              </article>
+              <article class="market-card loading">
+                <span>Loading</span>
+                <strong>-</strong>
+              </article>
+            </div>
           </div>
         </section>
 
