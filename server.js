@@ -1397,8 +1397,7 @@ if (require.main === module) {
   });
 }
 
-module.exports = {
-  buildHoldingSnapshot,
-  buildPortfolioSummary,
-  normalizeYahooYield,
-};
+module.exports = app;
+module.exports.buildHoldingSnapshot = buildHoldingSnapshot;
+module.exports.buildPortfolioSummary = buildPortfolioSummary;
+module.exports.normalizeYahooYield = normalizeYahooYield;
