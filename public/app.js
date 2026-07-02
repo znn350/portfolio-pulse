@@ -67,6 +67,7 @@ const elements = {
   totalReturn: document.querySelector("#total-return"),
   totalReturnCard: document.querySelector("#total-return-card"),
   annualDividend: document.querySelector("#annual-dividend"),
+  dividendYield: document.querySelector("#dividend-yield"),
   toggleHeroPanelBtn: document.querySelector("#toggle-hero-panel-btn"),
   heroPanelBody: document.querySelector("#hero-panel-body"),
   holdingForm: document.querySelector("#holding-form"),
@@ -647,6 +648,10 @@ function renderSummary() {
   elements.totalReturn.className = returnClass;
   elements.totalReturnCard.className = "stat-card panel";
   elements.annualDividend.textContent = formatCurrency(summary.annualDividendIncome || 0);
+  elements.dividendYield.textContent =
+    typeof summary.dividendYield === "number"
+      ? formatPercent(summary.dividendYield)
+      : "-";
   elements.refreshedAt.textContent = lastSnapshot.refreshedAt
     ? `Last refresh ${new Date(lastSnapshot.refreshedAt).toLocaleTimeString()}`
     : "Not refreshed yet";
@@ -1069,6 +1074,7 @@ function createEmptySnapshot() {
       totalReturn: 0,
       totalReturnPercent: null,
       annualDividendIncome: 0,
+      dividendYield: null,
     },
     dataProviders: [],
     refreshedAt: null,

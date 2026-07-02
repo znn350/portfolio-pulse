@@ -994,6 +994,37 @@ function buildHoldingSnapshot(holding, marketData) {
   };
 }
 
+function buildPortfolioSummary(holdings) {
+  const summary = holdings.reduce(
+    (accumulator, holding) => {
+      accumulator.totalMarketValue += holding.marketValue;
+      accumulator.totalCost += holding.totalCost;
+      accumulator.totalDayReturn += holding.dayChange || 0;
+      accumulator.annualDividendIncome += holding.annualDividendIncome;
+      return accumulator;
+    },
+    {
+      totalMarketValue: 0,
+      totalCost: 0,
+      totalDayReturn: 0,
+      annualDividendIncome: 0,
+    }
+  );
+
+  const previousMarketValue = summary.totalMarketValue - summary.totalDayReturn;
+  summary.totalDayReturnPercent =
+    previousMarketValue > 0 ? summary.totalDayReturn / previousMarketValue : null;
+  summary.totalReturn = summary.totalMarketValue - summary.totalCost;
+  summary.totalReturnPercent =
+    summary.totalCost > 0 ? summary.totalReturn / summary.totalCost : null;
+  summary.dividendYield =
+    summary.totalMarketValue > 0
+      ? summary.annualDividendIncome / summary.totalMarketValue
+      : null;
+
+  return summary;
+}
+
 app.get("/api/auth/session", async (req, res) => {
   try {
     const usersStore = await readUsersStore();
@@ -1313,6 +1344,7 @@ app.post("/api/portfolio-snapshot", async (req, res) => {
         totalReturn: 0,
         totalReturnPercent: null,
         annualDividendIncome: 0,
+        dividendYield: null,
       },
       dataProviders: [],
       refreshedAt: new Date().toISOString(),
@@ -1339,28 +1371,7 @@ app.post("/api/portfolio-snapshot", async (req, res) => {
         filtered.map((holding) => holding.dataProvider).filter(Boolean)
       ),
     ];
-    const summary = filtered.reduce(
-      (accumulator, holding) => {
-        accumulator.totalMarketValue += holding.marketValue;
-        accumulator.totalCost += holding.totalCost;
-        accumulator.totalDayReturn += holding.dayChange || 0;
-        accumulator.annualDividendIncome += holding.annualDividendIncome;
-        return accumulator;
-      },
-      {
-        totalMarketValue: 0,
-        totalCost: 0,
-        totalDayReturn: 0,
-        annualDividendIncome: 0,
-      }
-    );
-
-    const previousMarketValue = summary.totalMarketValue - summary.totalDayReturn;
-    summary.totalDayReturnPercent =
-      previousMarketValue > 0 ? summary.totalDayReturn / previousMarketValue : null;
-    summary.totalReturn = summary.totalMarketValue - summary.totalCost;
-    summary.totalReturnPercent =
-      summary.totalCost > 0 ? summary.totalReturn / summary.totalCost : null;
+    const summary = buildPortfolioSummary(filtered);
 
     res.json({
       holdings: filtered,
@@ -1380,6 +1391,14 @@ app.use((req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.listen(port, () => {
-  console.log(`Portfolio tracker running at http://localhost:${port}`);
-});
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`Portfolio tracker running at http://localhost:${port}`);
+  });
+}
+
+module.exports = {
+  buildHoldingSnapshot,
+  buildPortfolioSummary,
+  normalizeYahooYield,
+};
