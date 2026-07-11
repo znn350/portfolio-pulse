@@ -4,6 +4,7 @@ const {
   buildHoldingSnapshot,
   buildPortfolioSummary,
   normalizeYahooYield,
+  sanitizeAppState,
 } = require("./server");
 
 const tests = [
@@ -91,6 +92,55 @@ const tests = [
       assert.equal(summary.dividendYield, null);
       assert.equal(summary.totalDayReturnPercent, null);
       assert.equal(summary.totalReturnPercent, null);
+    },
+  },
+  {
+    name: "sanitizeAppState migrates legacy portfolio holdings into a default account",
+    run() {
+      const state = sanitizeAppState({
+        selectedPortfolioId: "legacy",
+        portfolios: [
+          {
+            id: "legacy",
+            name: "Legacy Portfolio",
+            holdings: [
+              {
+                symbol: "VTI",
+                shares: "10",
+                costBasis: "200",
+              },
+            ],
+          },
+        ],
+      });
+
+      assert.equal(state.portfolios[0].selectedAccountId, "account-1");
+      assert.equal(state.portfolios[0].accounts.length, 1);
+      assert.equal(state.portfolios[0].accounts[0].name, "Main Account");
+      assert.equal(state.portfolios[0].accounts[0].holdings[0].symbol, "VTI");
+      assert.equal(state.portfolios[0].accounts[0].holdings[0].shares, 10);
+    },
+  },
+  {
+    name: "sanitizeAppState keeps a valid selected account and falls back when needed",
+    run() {
+      const state = sanitizeAppState({
+        selectedPortfolioId: "core",
+        portfolios: [
+          {
+            id: "core",
+            name: "Core",
+            selectedAccountId: "missing",
+            accounts: [
+              { id: "taxable", name: "Taxable", holdings: [] },
+              { id: "ira", name: "IRA", holdings: [] },
+            ],
+          },
+        ],
+      });
+
+      assert.equal(state.portfolios[0].selectedAccountId, "taxable");
+      assert.equal(state.portfolios[0].accounts.length, 2);
     },
   },
 ];

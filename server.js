@@ -95,7 +95,14 @@ const defaultAppState = {
     {
       id: "core",
       name: "Core Portfolio",
-      holdings: [],
+      selectedAccountId: "account-1",
+      accounts: [
+        {
+          id: "account-1",
+          name: "Main Account",
+          holdings: [],
+        },
+      ],
     },
   ],
 };
@@ -180,10 +187,10 @@ function sanitizeHolding(holding) {
   };
 }
 
-function sanitizePortfolio(portfolio, index) {
-  const id = String(portfolio?.id || `portfolio-${index + 1}`).trim();
-  const holdings = Array.isArray(portfolio?.holdings)
-    ? portfolio.holdings
+function sanitizeAccount(account, index) {
+  const id = String(account?.id || `account-${index + 1}`).trim();
+  const holdings = Array.isArray(account?.holdings)
+    ? account.holdings
         .map(sanitizeHolding)
         .filter((holding) => Boolean(holding.symbol))
     : [];
@@ -191,9 +198,44 @@ function sanitizePortfolio(portfolio, index) {
   return {
     id,
     name:
+      String(account?.name || `Account ${index + 1}`).trim() ||
+      `Account ${index + 1}`,
+    holdings,
+  };
+}
+
+function sanitizePortfolio(portfolio, index) {
+  const id = String(portfolio?.id || `portfolio-${index + 1}`).trim();
+  const legacyHoldings = Array.isArray(portfolio?.holdings)
+    ? portfolio.holdings
+    : [];
+  const accounts = Array.isArray(portfolio?.accounts) && portfolio.accounts.length
+    ? portfolio.accounts
+        .map(sanitizeAccount)
+        .filter((account) => account.id)
+    : [
+        sanitizeAccount(
+          {
+            id: "account-1",
+            name: "Main Account",
+            holdings: legacyHoldings,
+          },
+          0
+        ),
+      ];
+  const selectedAccountId = accounts.some(
+    (account) => account.id === portfolio?.selectedAccountId
+  )
+    ? portfolio.selectedAccountId
+    : accounts[0].id;
+
+  return {
+    id,
+    name:
       String(portfolio?.name || `Portfolio ${index + 1}`).trim() ||
       `Portfolio ${index + 1}`,
-    holdings,
+    selectedAccountId,
+    accounts,
   };
 }
 
@@ -1401,3 +1443,4 @@ module.exports = app;
 module.exports.buildHoldingSnapshot = buildHoldingSnapshot;
 module.exports.buildPortfolioSummary = buildPortfolioSummary;
 module.exports.normalizeYahooYield = normalizeYahooYield;
+module.exports.sanitizeAppState = sanitizeAppState;

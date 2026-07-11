@@ -4,7 +4,14 @@ const defaultState = {
     {
       id: "core",
       name: "Core Portfolio",
-      holdings: [],
+      selectedAccountId: "account-1",
+      accounts: [
+        {
+          id: "account-1",
+          name: "Main Account",
+          holdings: [],
+        },
+      ],
     },
   ],
 };
@@ -51,6 +58,7 @@ const elements = {
   adminStatus: document.querySelector("#admin-status"),
   adminUsersList: document.querySelector("#admin-users-list"),
   portfolioList: document.querySelector("#portfolio-list"),
+  accountList: document.querySelector("#account-list"),
   portfolioName: document.querySelector("#portfolio-name"),
   portfolioMeta: document.querySelector("#portfolio-meta"),
   providerBanner: document.querySelector("#provider-banner"),
@@ -85,10 +93,14 @@ const elements = {
   searchResults: document.querySelector("#search-results"),
   refreshBtn: document.querySelector("#refresh-btn"),
   newPortfolioBtn: document.querySelector("#new-portfolio-btn"),
+  newAccountBtn: document.querySelector("#new-account-btn"),
   renamePortfolioBtn: document.querySelector("#rename-portfolio-btn"),
+  renameAccountBtn: document.querySelector("#rename-account-btn"),
   duplicatePortfolioBtn: document.querySelector("#duplicate-portfolio-btn"),
+  deleteAccountBtn: document.querySelector("#delete-account-btn"),
   deletePortfolioBtn: document.querySelector("#delete-portfolio-btn"),
   portfolioTemplate: document.querySelector("#portfolio-item-template"),
+  accountTemplate: document.querySelector("#account-item-template"),
 };
 
 let currentUser = null;
@@ -119,6 +131,7 @@ let adminUsers = [];
 let draggedHoldingSymbol = null;
 let draggedPortfolioId = null;
 let editingHoldingSymbol = null;
+let editingHoldingAccountId = null;
 let currentTheme = "light";
 let quotePreviewRequestId = 0;
 let isShareCalculatorOpen = false;
@@ -155,6 +168,90 @@ function toggleTheme() {
 
 function getUserStorageKey(user) {
   return user ? `portfolio-pulse-state:${user.id}` : "";
+}
+
+function toNumber(value) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+function createDefaultAccount(overrides = {}) {
+  return {
+    id: overrides.id || makeId(),
+    name: String(overrides.name || "Main Account").trim() || "Main Account",
+    holdings: Array.isArray(overrides.holdings) ? overrides.holdings : [],
+  };
+}
+
+function normalizeHolding(holding) {
+  return {
+    symbol: String(holding?.symbol || "").trim().toUpperCase(),
+    quoteType: String(holding?.quoteType || "").trim().toUpperCase(),
+    shares: toNumber(holding?.shares),
+    costBasis: toNumber(holding?.costBasis),
+    purchaseDate: String(holding?.purchaseDate || "").trim(),
+    notes: String(holding?.notes || "").trim(),
+  };
+}
+
+function normalizeAccount(account, index) {
+  const id = String(account?.id || `account-${index + 1}`).trim();
+  const holdings = Array.isArray(account?.holdings)
+    ? account.holdings.map(normalizeHolding).filter((holding) => holding.symbol)
+    : [];
+
+  return {
+    id,
+    name: String(account?.name || `Account ${index + 1}`).trim() || `Account ${index + 1}`,
+    holdings,
+  };
+}
+
+function normalizePortfolio(portfolio, index) {
+  const legacyHoldings = Array.isArray(portfolio?.holdings) ? portfolio.holdings : [];
+  const accounts = Array.isArray(portfolio?.accounts) && portfolio.accounts.length
+    ? portfolio.accounts.map(normalizeAccount).filter((account) => account.id)
+    : [normalizeAccount(createDefaultAccount({ id: "account-1", holdings: legacyHoldings }), 0)];
+  const selectedAccountId = accounts.some(
+    (account) => account.id === portfolio?.selectedAccountId
+  )
+    ? portfolio.selectedAccountId
+    : accounts[0].id;
+
+  return {
+    id: String(portfolio?.id || `portfolio-${index + 1}`).trim(),
+    name:
+      String(portfolio?.name || `Portfolio ${index + 1}`).trim() ||
+      `Portfolio ${index + 1}`,
+    selectedAccountId,
+    accounts,
+  };
+}
+
+function normalizeState(nextState) {
+  const portfolios = Array.isArray(nextState?.portfolios)
+    ? nextState.portfolios.map(normalizePortfolio).filter((portfolio) => portfolio.id)
+    : [];
+  const safePortfolios =
+    portfolios.length > 0 ? portfolios : structuredClone(defaultState.portfolios);
+  const selectedPortfolioId = safePortfolios.some(
+    (portfolio) => portfolio.id === nextState?.selectedPortfolioId
+  )
+    ? nextState.selectedPortfolioId
+    : safePortfolios[0].id;
+
+  return {
+    selectedPortfolioId,
+    portfolios: safePortfolios,
+  };
 }
 
 function consumeAuthFlash() {
@@ -203,6 +300,8 @@ function resetStateForSignedOutUser() {
   selectedSearchResult = null;
   isAdminPanelOpen = false;
   adminUsers = [];
+  editingHoldingSymbol = null;
+  editingHoldingAccountId = null;
   clearTimeout(saveTimer);
   clearTimeout(searchTimer);
 }
@@ -255,14 +354,17 @@ function cacheStateLocally() {
     return;
   }
 
-  localStorage.setItem(getUserStorageKey(currentUser), JSON.stringify(state));
+  localStorage.setItem(
+    getUserStorageKey(currentUser),
+    JSON.stringify(normalizeState(state))
+  );
 }
 
 function tryHydrateFromLocalCache(user) {
   try {
     const saved = JSON.parse(localStorage.getItem(getUserStorageKey(user)));
     if (saved?.portfolios?.length) {
-      state = saved;
+      state = normalizeState(saved);
       render();
     }
   } catch (error) {
@@ -284,6 +386,26 @@ function getSelectedPortfolio() {
       (portfolio) => portfolio.id === state.selectedPortfolioId
     ) || state.portfolios[0]
   );
+}
+
+function getSelectedAccount(portfolio = getSelectedPortfolio()) {
+  if (!portfolio) {
+    return null;
+  }
+
+  return (
+    portfolio.accounts.find(
+      (account) => account.id === portfolio.selectedAccountId
+    ) || portfolio.accounts[0]
+  );
+}
+
+function getAllPortfolioHoldings(portfolio = getSelectedPortfolio()) {
+  if (!portfolio) {
+    return [];
+  }
+
+  return portfolio.accounts.flatMap((account) => account.holdings);
 }
 
 function formatCurrency(value, currency = "USD") {
@@ -388,7 +510,9 @@ function renderPortfolios() {
           : " negative"
         : ""
     }`;
-    fragment.querySelector(".portfolio-item-count").textContent = `${portfolio.holdings.length} holdings`;
+    const holdingCount = getAllPortfolioHoldings(portfolio).length;
+    fragment.querySelector(".portfolio-item-count").textContent =
+      `${portfolio.accounts.length} accounts · ${holdingCount} holdings`;
     button.addEventListener("click", () => {
       resetHoldingForm();
       setHoldingFormOpen(false);
@@ -463,6 +587,34 @@ function renderPortfolios() {
   });
 }
 
+function renderAccounts() {
+  const selectedPortfolio = getSelectedPortfolio();
+  const selectedAccount = getSelectedAccount(selectedPortfolio);
+  elements.accountList.innerHTML = "";
+
+  selectedPortfolio.accounts.forEach((account) => {
+    const fragment = elements.accountTemplate.content.cloneNode(true);
+    const button = fragment.querySelector(".account-item");
+    button.dataset.accountId = account.id;
+    button.classList.toggle("active", account.id === selectedAccount?.id);
+    fragment.querySelector(".account-item-name").textContent = account.name;
+    fragment.querySelector(".account-item-count").textContent = `${account.holdings.length} holdings`;
+    button.addEventListener("click", () => {
+      if (selectedPortfolio.selectedAccountId === account.id) {
+        return;
+      }
+
+      resetHoldingForm();
+      setHoldingFormOpen(false);
+      selectedPortfolio.selectedAccountId = account.id;
+      saveState();
+      render();
+      refreshSnapshot();
+    });
+    elements.accountList.appendChild(fragment);
+  });
+}
+
 function syncHeroPanelVisibility() {
   elements.heroPanelBody.classList.toggle("hidden", !isHeroPanelOpen);
   elements.toggleHeroPanelBtn.setAttribute(
@@ -522,11 +674,11 @@ function toggleMarketOverview() {
 }
 
 function reorderHoldings(draggedSymbol, targetSymbol, insertAfter = false) {
-  const portfolio = getSelectedPortfolio();
-  const sourceIndex = portfolio.holdings.findIndex(
+  const account = getSelectedAccount();
+  const sourceIndex = account.holdings.findIndex(
     (holding) => holding.symbol.toUpperCase() === draggedSymbol.toUpperCase()
   );
-  const targetIndex = portfolio.holdings.findIndex(
+  const targetIndex = account.holdings.findIndex(
     (holding) => holding.symbol.toUpperCase() === targetSymbol.toUpperCase()
   );
 
@@ -534,7 +686,7 @@ function reorderHoldings(draggedSymbol, targetSymbol, insertAfter = false) {
     return;
   }
 
-  const [movedHolding] = portfolio.holdings.splice(sourceIndex, 1);
+  const [movedHolding] = account.holdings.splice(sourceIndex, 1);
   let nextIndex = targetIndex;
 
   if (sourceIndex < targetIndex) {
@@ -545,7 +697,7 @@ function reorderHoldings(draggedSymbol, targetSymbol, insertAfter = false) {
     nextIndex += 1;
   }
 
-  portfolio.holdings.splice(nextIndex, 0, movedHolding);
+  account.holdings.splice(nextIndex, 0, movedHolding);
   saveState();
 }
 
@@ -603,8 +755,9 @@ function renderAdminUsers() {
 
 function renderSummary() {
   const selected = getSelectedPortfolio();
+  const selectedAccount = getSelectedAccount(selected);
   elements.portfolioName.textContent = selected.name;
-  elements.portfolioMeta.textContent = `${selected.holdings.length} holdings across stocks and funds`;
+  elements.portfolioMeta.textContent = `${selected.accounts.length} accounts · viewing ${selectedAccount.holdings.length} holdings in ${selectedAccount.name}`;
 
   const providers = lastSnapshot.dataProviders || [];
   if (providers.length) {
@@ -794,12 +947,13 @@ function renderSymbolPreview(quote) {
 }
 
 function syncHoldingFormVisibility() {
+  const account = getSelectedAccount();
   elements.holdingForm.classList.toggle("hidden", !isHoldingFormOpen);
   elements.toggleHoldingFormBtn.setAttribute("aria-expanded", String(isHoldingFormOpen));
   elements.toggleHoldingFormBtn.textContent = isHoldingFormOpen ? "Hide" : "Show";
   elements.holdingFormTitle.textContent = editingHoldingSymbol
-    ? "Edit Holding"
-    : "Add Holding";
+    ? `Edit Holding in ${account.name}`
+    : `Add Holding to ${account.name}`;
   elements.saveHoldingBtn.textContent = editingHoldingSymbol
     ? "Update Holding"
     : "Save Holding";
@@ -823,6 +977,7 @@ function toggleHoldingForm() {
 
 function resetHoldingForm() {
   editingHoldingSymbol = null;
+  editingHoldingAccountId = null;
   selectedSearchResult = null;
   currentQuotePreview = null;
   quotePreviewRequestId += 1;
@@ -836,8 +991,8 @@ function resetHoldingForm() {
 }
 
 function startEditingHolding(symbol) {
-  const portfolio = getSelectedPortfolio();
-  const holding = portfolio.holdings.find(
+  const account = getSelectedAccount();
+  const holding = account.holdings.find(
     (item) => item.symbol.toUpperCase() === symbol.toUpperCase()
   );
 
@@ -846,6 +1001,7 @@ function startEditingHolding(symbol) {
   }
 
   editingHoldingSymbol = holding.symbol.toUpperCase();
+  editingHoldingAccountId = account.id;
   selectedSearchResult = holding.quoteType
     ? {
         symbol: holding.symbol.toUpperCase(),
@@ -895,18 +1051,18 @@ async function authFetch(url, options = {}) {
 }
 
 function renderHoldings() {
-  const selected = getSelectedPortfolio();
+  const selectedAccount = getSelectedAccount();
   const snapshotMap = new Map(
     (lastSnapshot.holdings || []).map((holding) => [holding.symbol, holding])
   );
 
-  if (!selected.holdings.length) {
+  if (!selectedAccount.holdings.length) {
     elements.holdingsTable.innerHTML =
-      '<tr><td colspan="12" class="empty-state">No holdings yet. Add a stock or mutual fund from the form on the left.</td></tr>';
+      `<tr><td colspan="12" class="empty-state">No holdings yet in ${selectedAccount.name}. Add a stock or mutual fund from the form on the left.</td></tr>`;
     return;
   }
 
-  elements.holdingsTable.innerHTML = selected.holdings
+  elements.holdingsTable.innerHTML = selectedAccount.holdings
     .map((holding) => {
       const live = snapshotMap.get(holding.symbol.toUpperCase());
       const returnClass =
@@ -1039,9 +1195,12 @@ function renderHoldings() {
 
 function render() {
   if (editingHoldingSymbol) {
-    const hasEditedHolding = getSelectedPortfolio().holdings.some(
-      (holding) => holding.symbol.toUpperCase() === editingHoldingSymbol
-    );
+    const selectedAccount = getSelectedAccount();
+    const hasEditedHolding =
+      editingHoldingAccountId === selectedAccount.id &&
+      selectedAccount.holdings.some(
+        (holding) => holding.symbol.toUpperCase() === editingHoldingSymbol
+      );
 
     if (!hasEditedHolding) {
       resetHoldingForm();
@@ -1051,6 +1210,7 @@ function render() {
   }
 
   renderPortfolios();
+  renderAccounts();
   renderAdminUsers();
   syncAdminPanelVisibility();
   renderMarketOverview();
@@ -1081,14 +1241,14 @@ function createEmptySnapshot() {
   };
 }
 
-async function fetchPortfolioSnapshot(portfolio) {
-  if (!portfolio?.holdings?.length) {
+async function fetchPortfolioSnapshot(holdings) {
+  if (!holdings?.length) {
     return createEmptySnapshot();
   }
 
   const response = await authFetch("/api/portfolio-snapshot", {
     method: "POST",
-    body: JSON.stringify({ holdings: portfolio.holdings }),
+    body: JSON.stringify({ holdings }),
   });
 
   if (!response.ok) {
@@ -1116,7 +1276,14 @@ function addPortfolio() {
   const portfolio = {
     id: makeId(),
     name: name.trim(),
-    holdings: [],
+    selectedAccountId: "account-1",
+    accounts: [
+      {
+        id: "account-1",
+        name: "Main Account",
+        holdings: [],
+      },
+    ],
   };
 
   resetHoldingForm();
@@ -1129,14 +1296,87 @@ function addPortfolio() {
   render();
 }
 
+function addAccount() {
+  const portfolio = getSelectedPortfolio();
+  const name = window.prompt("Account name");
+  if (!name) {
+    return;
+  }
+
+  const account = createDefaultAccount({ name: name.trim() });
+  portfolio.accounts.push(account);
+  portfolio.selectedAccountId = account.id;
+  resetHoldingForm();
+  setHoldingFormOpen(false);
+  saveState();
+  lastSnapshot = { holdings: [], summary: {}, dataProviders: [], refreshedAt: null };
+  render();
+}
+
+function renameSelectedAccount() {
+  const account = getSelectedAccount();
+  const nextName = window.prompt("Rename account", account.name);
+
+  if (nextName === null) {
+    return;
+  }
+
+  const trimmedName = nextName.trim();
+  if (!trimmedName) {
+    window.alert("Account name cannot be empty.");
+    return;
+  }
+
+  if (trimmedName === account.name) {
+    return;
+  }
+
+  account.name = trimmedName;
+  saveState();
+  render();
+}
+
+function deleteSelectedAccount() {
+  const portfolio = getSelectedPortfolio();
+  const account = getSelectedAccount(portfolio);
+
+  if (portfolio.accounts.length === 1) {
+    window.alert("Keep at least one account in each portfolio.");
+    return;
+  }
+
+  const confirmed = window.confirm(`Delete ${account.name}?`);
+  if (!confirmed) {
+    return;
+  }
+
+  resetHoldingForm();
+  setHoldingFormOpen(false);
+  portfolio.accounts = portfolio.accounts.filter((item) => item.id !== account.id);
+  portfolio.selectedAccountId = portfolio.accounts[0].id;
+  saveState();
+  lastSnapshot = { holdings: [], summary: {}, dataProviders: [], refreshedAt: null };
+  render();
+  refreshSnapshot();
+}
+
 function duplicateSelectedPortfolio() {
   const selected = getSelectedPortfolio();
   const duplicateName = getUniquePortfolioName(`${selected.name} Copy`);
+  const selectedAccountIndex = selected.accounts.findIndex(
+    (account) => account.id === selected.selectedAccountId
+  );
   const duplicatePortfolio = {
     id: makeId(),
     name: duplicateName,
-    holdings: selected.holdings.map((holding) => ({ ...holding })),
+    accounts: selected.accounts.map((account) => ({
+      id: makeId(),
+      name: account.name,
+      holdings: account.holdings.map((holding) => ({ ...holding })),
+    })),
   };
+  duplicatePortfolio.selectedAccountId =
+    duplicatePortfolio.accounts[selectedAccountIndex >= 0 ? selectedAccountIndex : 0]?.id || "";
 
   resetHoldingForm();
   setHoldingFormOpen(false);
@@ -1198,26 +1438,26 @@ function deleteSelectedPortfolio() {
 }
 
 function upsertHolding(holding) {
-  const portfolio = getSelectedPortfolio();
+  const account = getSelectedAccount();
   const symbol = holding.symbol.toUpperCase();
   const originalSymbol = editingHoldingSymbol || symbol;
-  const existingIndex = portfolio.holdings.findIndex(
+  const existingIndex = account.holdings.findIndex(
     (item) => item.symbol.toUpperCase() === originalSymbol
   );
-  const duplicateIndex = portfolio.holdings.findIndex(
+  const duplicateIndex = account.holdings.findIndex(
     (item, index) =>
       index !== existingIndex && item.symbol.toUpperCase() === symbol
   );
 
   if (duplicateIndex >= 0) {
-    window.alert(`A holding for ${symbol} already exists in this portfolio.`);
+    window.alert(`A holding for ${symbol} already exists in ${account.name}.`);
     return false;
   }
 
   if (existingIndex >= 0) {
-    portfolio.holdings[existingIndex] = { ...holding, symbol };
+    account.holdings[existingIndex] = { ...holding, symbol };
   } else {
-    portfolio.holdings.unshift({ ...holding, symbol });
+    account.holdings.unshift({ ...holding, symbol });
   }
 
   saveState();
@@ -1227,11 +1467,14 @@ function upsertHolding(holding) {
 }
 
 function removeHolding(symbol) {
-  const portfolio = getSelectedPortfolio();
-  portfolio.holdings = portfolio.holdings.filter(
+  const account = getSelectedAccount();
+  account.holdings = account.holdings.filter(
     (holding) => holding.symbol.toUpperCase() !== symbol.toUpperCase()
   );
-  if (editingHoldingSymbol === symbol.toUpperCase()) {
+  if (
+    editingHoldingSymbol === symbol.toUpperCase() &&
+    editingHoldingAccountId === account.id
+  ) {
     resetHoldingForm();
     setHoldingFormOpen(false);
   }
@@ -1246,12 +1489,14 @@ async function refreshSnapshot() {
   }
 
   const portfolio = getSelectedPortfolio();
+  const account = getSelectedAccount();
 
   elements.refreshedAt.textContent = "Refreshing live prices...";
 
   try {
-    lastSnapshot = await fetchPortfolioSnapshot(portfolio);
-    cachePortfolioPerformance(portfolio.id, lastSnapshot);
+    lastSnapshot = await fetchPortfolioSnapshot(account.holdings);
+    const portfolioSnapshot = await fetchPortfolioSnapshot(getAllPortfolioHoldings(portfolio));
+    cachePortfolioPerformance(portfolio.id, portfolioSnapshot);
     render();
   } catch (error) {
     console.error(error);
@@ -1264,11 +1509,10 @@ async function refreshPortfolioPerformanceSummaries() {
     return;
   }
 
-  const selectedPortfolioId = getSelectedPortfolio()?.id;
   const snapshots = await Promise.all(
     state.portfolios.map(async (portfolio) => {
       try {
-        const snapshot = await fetchPortfolioSnapshot(portfolio);
+        const snapshot = await fetchPortfolioSnapshot(getAllPortfolioHoldings(portfolio));
         return { portfolioId: portfolio.id, snapshot };
       } catch (error) {
         console.error(error);
@@ -1277,8 +1521,8 @@ async function refreshPortfolioPerformanceSummaries() {
     })
   );
 
-  let selectedSnapshot = null;
   let didSelectedSnapshotFail = false;
+  const selectedPortfolioId = getSelectedPortfolio()?.id;
 
   snapshots.forEach((entry) => {
     if (entry.error) {
@@ -1289,14 +1533,7 @@ async function refreshPortfolioPerformanceSummaries() {
     }
 
     cachePortfolioPerformance(entry.portfolioId, entry.snapshot);
-    if (entry.portfolioId === selectedPortfolioId) {
-      selectedSnapshot = entry.snapshot;
-    }
   });
-
-  if (selectedSnapshot) {
-    lastSnapshot = selectedSnapshot;
-  }
 
   render();
 
@@ -1328,7 +1565,11 @@ async function refreshMarketOverview() {
 
 async function refreshAllSnapshots() {
   elements.refreshedAt.textContent = "Refreshing live prices...";
-  await Promise.all([refreshMarketOverview(), refreshPortfolioPerformanceSummaries()]);
+  await Promise.all([
+    refreshMarketOverview(),
+    refreshPortfolioPerformanceSummaries(),
+    refreshSnapshot(),
+  ]);
 }
 
 async function pushStateToServer() {
@@ -1340,7 +1581,7 @@ async function pushStateToServer() {
     setSaveStatus("Saving portfolios...");
     const response = await authFetch("/api/app-state", {
       method: "PUT",
-      body: JSON.stringify(state),
+      body: JSON.stringify(normalizeState(state)),
     });
 
     if (!response.ok) {
@@ -1348,7 +1589,7 @@ async function pushStateToServer() {
     }
 
     const payload = await response.json();
-    state = payload.state;
+    state = normalizeState(payload.state);
     storageMode = payload.storageMode || storageMode;
     cacheStateLocally();
     setSaveStatus(
@@ -1382,7 +1623,7 @@ async function loadStateFromServer() {
 
     const payload = await response.json();
     isHydratingFromServer = true;
-    state = payload.state;
+    state = normalizeState(payload.state);
     storageMode = payload.storageMode || "";
     cacheStateLocally();
     portfolioPerformanceById = {};
@@ -1698,8 +1939,11 @@ elements.symbolInput.addEventListener("input", (event) => {
 
 elements.refreshBtn.addEventListener("click", refreshAllSnapshots);
 elements.newPortfolioBtn.addEventListener("click", addPortfolio);
+elements.newAccountBtn.addEventListener("click", addAccount);
 elements.renamePortfolioBtn.addEventListener("click", renameSelectedPortfolio);
+elements.renameAccountBtn.addEventListener("click", renameSelectedAccount);
 elements.duplicatePortfolioBtn.addEventListener("click", duplicateSelectedPortfolio);
+elements.deleteAccountBtn.addEventListener("click", deleteSelectedAccount);
 elements.deletePortfolioBtn.addEventListener("click", deleteSelectedPortfolio);
 elements.toggleMarketOverviewBtn.addEventListener("click", toggleMarketOverview);
 elements.toggleHoldingFormBtn.addEventListener("click", toggleHoldingForm);

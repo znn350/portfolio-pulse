@@ -318,6 +318,12 @@ textarea {
   margin-top: 14px;
 }
 
+.account-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
 .portfolio-item {
   position: relative;
   width: 100%;
@@ -419,6 +425,48 @@ textarea {
 
 .portfolio-item.active .portfolio-drag-handle span {
   background: rgba(255, 253, 249, 0.82);
+}
+
+.account-item {
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(79, 55, 38, 0.08);
+  background: var(--portfolio-item-bg);
+  border-radius: 18px;
+  padding: 13px 14px;
+  color: var(--text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.account-item:hover {
+  transform: translateY(-1px);
+  border-color: rgba(14, 122, 100, 0.18);
+  background: var(--portfolio-item-hover-bg);
+  color: var(--text);
+}
+
+.account-item.active {
+  transform: translateY(-1px);
+  border-color: rgba(14, 122, 100, 0.26);
+  background: color-mix(in srgb, var(--accent) 16%, var(--panel-bg) 84%);
+  box-shadow: 0 10px 24px rgba(14, 122, 100, 0.12);
+}
+
+.account-item-name {
+  font-weight: 700;
+}
+
+.account-item-count {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 
 .holding-form {
@@ -977,6 +1025,10 @@ th {
   }
 
   .portfolio-item {
+    padding: 12px 14px;
+  }
+
+  .account-item {
     padding: 12px 14px;
   }
 

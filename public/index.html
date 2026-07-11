@@ -82,6 +82,16 @@
 
           <section class="panel">
             <div class="panel-heading">
+              <h2>Accounts</h2>
+              <button id="new-account-btn" class="ghost-button" type="button">
+                New
+              </button>
+            </div>
+            <div id="account-list" class="account-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
               <h2 id="holding-form-title">Add Holding</h2>
               <button
                 id="toggle-holding-form-btn"
@@ -258,6 +268,12 @@
                 <button id="duplicate-portfolio-btn" class="ghost-button" type="button">
                   Duplicate
                 </button>
+                <button id="rename-account-btn" class="ghost-button" type="button">
+                  Rename Account
+                </button>
+                <button id="delete-account-btn" class="ghost-button" type="button">
+                  Delete Account
+                </button>
               </div>
               <p id="portfolio-meta" class="muted"></p>
               <div id="provider-banner" class="provider-banner hidden"></div>
@@ -338,6 +354,13 @@
           <span class="portfolio-item-performance">-</span>
         </span>
         <span class="portfolio-item-count"></span>
+      </button>
+    </template>
+
+    <template id="account-item-template">
+      <button type="button" class="account-item">
+        <span class="account-item-name"></span>
+        <span class="account-item-count"></span>
       </button>
     </template>
 
