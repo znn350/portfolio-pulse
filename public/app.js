@@ -68,6 +68,8 @@ const elements = {
   marketOverviewBody: document.querySelector("#market-overview-body"),
   marketOverview: document.querySelector("#market-overview"),
   marketRefreshedAt: document.querySelector("#market-refreshed-at"),
+  accountsOverview: document.querySelector("#accounts-overview"),
+  accountsOverviewMeta: document.querySelector("#accounts-overview-meta"),
   holdingsTable: document.querySelector("#holdings-table"),
   refreshedAt: document.querySelector("#refreshed-at"),
   totalValue: document.querySelector("#total-value"),
@@ -105,12 +107,9 @@ const elements = {
 
 let currentUser = null;
 let state = structuredClone(defaultState);
-let lastSnapshot = {
-  holdings: [],
-  summary: {},
-  dataProviders: [],
-  refreshedAt: null,
-};
+let lastAccountSnapshot = createEmptySnapshot();
+let lastPortfolioSnapshot = createEmptySnapshot();
+let lastAccountSnapshotsById = {};
 let lastMarketSnapshot = {
   items: [],
   refreshedAt: null,
@@ -285,12 +284,9 @@ function consumeAuthFlash() {
 function resetStateForSignedOutUser() {
   currentUser = null;
   state = structuredClone(defaultState);
-  lastSnapshot = {
-    holdings: [],
-    summary: {},
-    dataProviders: [],
-    refreshedAt: null,
-  };
+  lastAccountSnapshot = createEmptySnapshot();
+  lastPortfolioSnapshot = createEmptySnapshot();
+  lastAccountSnapshotsById = {};
   lastMarketSnapshot = {
     items: [],
     refreshedAt: null,
@@ -512,11 +508,12 @@ function renderPortfolios() {
     }`;
     const holdingCount = getAllPortfolioHoldings(portfolio).length;
     fragment.querySelector(".portfolio-item-count").textContent =
-      `${portfolio.accounts.length} accounts · ${holdingCount} holdings`;
+      `${portfolio.accounts.length} accounts - ${holdingCount} holdings`;
     button.addEventListener("click", () => {
       resetHoldingForm();
       setHoldingFormOpen(false);
       state.selectedPortfolioId = portfolio.id;
+      resetPortfolioSnapshots();
       saveState();
       render();
       refreshSnapshot();
@@ -607,6 +604,7 @@ function renderAccounts() {
       resetHoldingForm();
       setHoldingFormOpen(false);
       selectedPortfolio.selectedAccountId = account.id;
+      lastAccountSnapshot = lastAccountSnapshotsById[account.id] || createEmptySnapshot();
       saveState();
       render();
       refreshSnapshot();
@@ -757,9 +755,9 @@ function renderSummary() {
   const selected = getSelectedPortfolio();
   const selectedAccount = getSelectedAccount(selected);
   elements.portfolioName.textContent = selected.name;
-  elements.portfolioMeta.textContent = `${selected.accounts.length} accounts · viewing ${selectedAccount.holdings.length} holdings in ${selectedAccount.name}`;
+  elements.portfolioMeta.textContent = `${selected.accounts.length} accounts - viewing ${selectedAccount.holdings.length} holdings in ${selectedAccount.name}`;
 
-  const providers = lastSnapshot.dataProviders || [];
+  const providers = lastPortfolioSnapshot.dataProviders || [];
   if (providers.length) {
     const isFallback = providers.some((provider) => provider.includes("Yahoo"));
     elements.providerBanner.className = `provider-banner${isFallback ? " fallback" : ""}`;
@@ -782,7 +780,7 @@ function renderSummary() {
     elements.storageBanner.textContent = "";
   }
 
-  const summary = lastSnapshot.summary || {};
+  const summary = lastPortfolioSnapshot.summary || {};
   const dayReturnClass =
     (summary.totalDayReturn || 0) >= 0 ? "positive" : "negative";
   const returnClass =
@@ -805,9 +803,71 @@ function renderSummary() {
     typeof summary.dividendYield === "number"
       ? formatPercent(summary.dividendYield)
       : "-";
-  elements.refreshedAt.textContent = lastSnapshot.refreshedAt
-    ? `Last refresh ${new Date(lastSnapshot.refreshedAt).toLocaleTimeString()}`
+  elements.refreshedAt.textContent = lastAccountSnapshot.refreshedAt
+    ? `Last refresh ${new Date(lastAccountSnapshot.refreshedAt).toLocaleTimeString()}`
     : "Not refreshed yet";
+}
+
+function renderAccountsOverview() {
+  const portfolio = getSelectedPortfolio();
+  const selectedAccount = getSelectedAccount(portfolio);
+  const holdingsCount = getAllPortfolioHoldings(portfolio).length;
+
+  elements.accountsOverviewMeta.textContent =
+    `${portfolio.accounts.length} accounts across ${holdingsCount} holdings`;
+
+  if (!portfolio.accounts.length) {
+    elements.accountsOverview.innerHTML =
+      '<p class="account-overview-empty">No accounts in this portfolio yet.</p>';
+    return;
+  }
+
+  elements.accountsOverview.innerHTML = portfolio.accounts
+    .map((account) => {
+      const snapshot = lastAccountSnapshotsById[account.id] || createEmptySnapshot();
+      const summary = snapshot.summary || {};
+      const totalReturnClass =
+        typeof summary.totalReturn === "number" && summary.totalReturn < 0
+          ? "negative"
+          : "positive";
+      const dayReturnClass =
+        typeof summary.totalDayReturn === "number" && summary.totalDayReturn < 0
+          ? "negative"
+          : "positive";
+
+      return `
+        <article class="account-overview-card${
+          account.id === selectedAccount.id ? " active" : ""
+        }">
+          <div class="account-overview-header">
+            <div>
+              <div class="account-overview-name">${account.name}</div>
+              <div class="holding-name">${account.holdings.length} holdings</div>
+            </div>
+            <div class="chip">${account.id === selectedAccount.id ? "Selected" : "Account"}</div>
+          </div>
+          <div class="account-overview-body">
+            <div class="account-overview-row">
+              <span>Total Value</span>
+              <strong>${formatCurrency(summary.totalMarketValue || 0)}</strong>
+            </div>
+            <div class="account-overview-row ${dayReturnClass}">
+              <span>Day Return</span>
+              <strong>${formatCurrency(summary.totalDayReturn || 0)}</strong>
+            </div>
+            <div class="account-overview-row ${totalReturnClass}">
+              <span>Total Return</span>
+              <strong>${formatCurrency(summary.totalReturn || 0)}</strong>
+            </div>
+            <div class="account-overview-row">
+              <span>Dividend Income</span>
+              <strong>${formatCurrency(summary.annualDividendIncome || 0)}</strong>
+            </div>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
 }
 
 function renderMarketOverview() {
@@ -1053,7 +1113,7 @@ async function authFetch(url, options = {}) {
 function renderHoldings() {
   const selectedAccount = getSelectedAccount();
   const snapshotMap = new Map(
-    (lastSnapshot.holdings || []).map((holding) => [holding.symbol, holding])
+    (lastAccountSnapshot.holdings || []).map((holding) => [holding.symbol, holding])
   );
 
   if (!selectedAccount.holdings.length) {
@@ -1211,6 +1271,7 @@ function render() {
 
   renderPortfolios();
   renderAccounts();
+  renderAccountsOverview();
   renderAdminUsers();
   syncAdminPanelVisibility();
   renderMarketOverview();
@@ -1239,6 +1300,12 @@ function createEmptySnapshot() {
     dataProviders: [],
     refreshedAt: null,
   };
+}
+
+function resetPortfolioSnapshots() {
+  lastAccountSnapshot = createEmptySnapshot();
+  lastPortfolioSnapshot = createEmptySnapshot();
+  lastAccountSnapshotsById = {};
 }
 
 async function fetchPortfolioSnapshot(holdings) {
@@ -1292,7 +1359,7 @@ function addPortfolio() {
   state.selectedPortfolioId = portfolio.id;
   portfolioPerformanceById[portfolio.id] = { totalDayReturnPercent: null };
   saveState();
-  lastSnapshot = { holdings: [], summary: {}, dataProviders: [], refreshedAt: null };
+  resetPortfolioSnapshots();
   render();
 }
 
@@ -1309,7 +1376,7 @@ function addAccount() {
   resetHoldingForm();
   setHoldingFormOpen(false);
   saveState();
-  lastSnapshot = { holdings: [], summary: {}, dataProviders: [], refreshedAt: null };
+  resetPortfolioSnapshots();
   render();
 }
 
@@ -1355,7 +1422,7 @@ function deleteSelectedAccount() {
   portfolio.accounts = portfolio.accounts.filter((item) => item.id !== account.id);
   portfolio.selectedAccountId = portfolio.accounts[0].id;
   saveState();
-  lastSnapshot = { holdings: [], summary: {}, dataProviders: [], refreshedAt: null };
+  resetPortfolioSnapshots();
   render();
   refreshSnapshot();
 }
@@ -1384,7 +1451,7 @@ function duplicateSelectedPortfolio() {
   state.selectedPortfolioId = duplicatePortfolio.id;
   portfolioPerformanceById[duplicatePortfolio.id] = { totalDayReturnPercent: null };
   saveState();
-  lastSnapshot = { holdings: [], summary: {}, dataProviders: [], refreshedAt: null };
+  resetPortfolioSnapshots();
   render();
   refreshSnapshot();
 }
@@ -1432,7 +1499,7 @@ function deleteSelectedPortfolio() {
   delete portfolioPerformanceById[selected.id];
   state.selectedPortfolioId = state.portfolios[0].id;
   saveState();
-  lastSnapshot = { holdings: [], summary: {}, dataProviders: [], refreshedAt: null };
+  resetPortfolioSnapshots();
   render();
   refreshSnapshot();
 }
@@ -1494,9 +1561,23 @@ async function refreshSnapshot() {
   elements.refreshedAt.textContent = "Refreshing live prices...";
 
   try {
-    lastSnapshot = await fetchPortfolioSnapshot(account.holdings);
-    const portfolioSnapshot = await fetchPortfolioSnapshot(getAllPortfolioHoldings(portfolio));
-    cachePortfolioPerformance(portfolio.id, portfolioSnapshot);
+    const accountEntries = await Promise.all(
+      portfolio.accounts.map(async (portfolioAccount) => ({
+        accountId: portfolioAccount.id,
+        snapshot: await fetchPortfolioSnapshot(portfolioAccount.holdings),
+      }))
+    );
+
+    lastAccountSnapshotsById = accountEntries.reduce((result, entry) => {
+      result[entry.accountId] = entry.snapshot;
+      return result;
+    }, {});
+    lastAccountSnapshot =
+      lastAccountSnapshotsById[account.id] || createEmptySnapshot();
+    lastPortfolioSnapshot = await fetchPortfolioSnapshot(
+      getAllPortfolioHoldings(portfolio)
+    );
+    cachePortfolioPerformance(portfolio.id, lastPortfolioSnapshot);
     render();
   } catch (error) {
     console.error(error);
@@ -1627,12 +1708,7 @@ async function loadStateFromServer() {
     storageMode = payload.storageMode || "";
     cacheStateLocally();
     portfolioPerformanceById = {};
-    lastSnapshot = {
-      holdings: [],
-      summary: {},
-      dataProviders: [],
-      refreshedAt: null,
-    };
+    resetPortfolioSnapshots();
     render();
     setSaveStatus(
       payload.savedAt

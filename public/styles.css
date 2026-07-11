@@ -724,6 +724,69 @@ textarea {
   gap: 14px;
 }
 
+.accounts-overview-panel {
+  margin-top: 20px;
+  padding: 22px;
+}
+
+.accounts-overview-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.account-overview-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px;
+  background: var(--table-row-bg);
+  box-shadow: 0 12px 28px rgba(72, 43, 20, 0.06);
+}
+
+.account-overview-card.active {
+  border-color: rgba(14, 122, 100, 0.32);
+  box-shadow: 0 14px 30px rgba(14, 122, 100, 0.12);
+}
+
+.account-overview-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.account-overview-name {
+  font-weight: 700;
+}
+
+.account-overview-body {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.account-overview-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.account-overview-row span {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.account-overview-row strong {
+  font-size: 1rem;
+}
+
+.account-overview-empty {
+  color: var(--muted);
+  padding: 6px 0 2px;
+}
+
 .stat-card {
   padding: 18px;
 }
@@ -1019,6 +1082,7 @@ th {
 
   .sidebar .panel,
   .market-strip,
+  .accounts-overview-panel,
   .holdings-panel,
   .stat-card {
     padding: 18px;
@@ -1168,6 +1232,7 @@ th {
   .sidebar .panel,
   .hero,
   .market-strip,
+  .accounts-overview-panel,
   .holdings-panel,
   .stat-card {
     padding: 16px;
