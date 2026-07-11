@@ -1006,6 +1006,104 @@ function renderSymbolPreview(quote) {
   syncSharesFromCalculatorTotal();
 }
 
+function buildAggregatedPortfolioHoldings(portfolio) {
+  const baseHoldingsBySymbol = new Map();
+
+  portfolio.accounts.forEach((account) => {
+    account.holdings.forEach((holding) => {
+      const symbol = holding.symbol.toUpperCase();
+      const entry = baseHoldingsBySymbol.get(symbol) || {
+        symbol,
+        shares: 0,
+        totalCost: 0,
+        notes: [],
+        accountNames: [],
+      };
+
+      entry.shares += Number(holding.shares) || 0;
+      entry.totalCost += (Number(holding.shares) || 0) * (Number(holding.costBasis) || 0);
+      if (holding.notes) {
+        entry.notes.push(holding.notes);
+      }
+      entry.accountNames.push(account.name);
+      baseHoldingsBySymbol.set(symbol, entry);
+    });
+  });
+
+  const liveBySymbol = new Map();
+  (lastPortfolioSnapshot.holdings || []).forEach((holding) => {
+    const symbol = holding.symbol.toUpperCase();
+    const entry = liveBySymbol.get(symbol) || {
+      symbol,
+      name: holding.name || symbol,
+      quoteType: holding.quoteType || "Holding",
+      exchange: holding.exchange || "",
+      currency: holding.currency || "USD",
+      price: holding.price || 0,
+      dayChange: 0,
+      dayChangePercentBase: 0,
+      marketValue: 0,
+      totalReturn: 0,
+      annualDividendIncome: 0,
+      weightedExpenseRatioValue: 0,
+      weightedExpenseRatioMarketValue: 0,
+      exDividendDate: holding.exDividendDate || "",
+    };
+
+    entry.dayChange += Number(holding.dayChange) || 0;
+    entry.marketValue += Number(holding.marketValue) || 0;
+    entry.totalReturn += Number(holding.totalReturn) || 0;
+    entry.annualDividendIncome += Number(holding.annualDividendIncome) || 0;
+    entry.dayChangePercentBase +=
+      (Number(holding.marketValue) || 0) - (Number(holding.dayChange) || 0);
+
+    if (holding.expenseRatio != null) {
+      const marketValue = Number(holding.marketValue) || 0;
+      entry.weightedExpenseRatioValue += holding.expenseRatio * marketValue;
+      entry.weightedExpenseRatioMarketValue += marketValue;
+    }
+
+    if (!entry.exDividendDate && holding.exDividendDate) {
+      entry.exDividendDate = holding.exDividendDate;
+    }
+
+    liveBySymbol.set(symbol, entry);
+  });
+
+  return Array.from(baseHoldingsBySymbol.values()).map((holding) => {
+    const live = liveBySymbol.get(holding.symbol);
+    const totalCost = holding.totalCost;
+    const marketValue = live?.marketValue ?? 0;
+    const totalReturn = live?.totalReturn ?? 0;
+    const dayChange = live?.dayChange ?? 0;
+
+    return {
+      symbol: holding.symbol,
+      shares: holding.shares,
+      costBasis: holding.shares > 0 ? totalCost / holding.shares : 0,
+      notes: holding.notes[0] || "",
+      accountNames: holding.accountNames,
+      accountCount: holding.accountNames.length,
+      live: live
+        ? {
+            ...live,
+            dayChangePercent:
+              live.dayChangePercentBase > 0
+                ? (dayChange / live.dayChangePercentBase) * 100
+                : null,
+            totalReturnPercent: totalCost > 0 ? totalReturn / totalCost : null,
+            dividendYield:
+              marketValue > 0 ? live.annualDividendIncome / marketValue : null,
+            expenseRatio:
+              live.weightedExpenseRatioMarketValue > 0
+                ? live.weightedExpenseRatioValue / live.weightedExpenseRatioMarketValue
+                : null,
+          }
+        : null,
+    };
+  });
+}
+
 function syncHoldingFormVisibility() {
   const account = getSelectedAccount();
   elements.holdingForm.classList.toggle("hidden", !isHoldingFormOpen);
@@ -1111,20 +1209,18 @@ async function authFetch(url, options = {}) {
 }
 
 function renderHoldings() {
-  const selectedAccount = getSelectedAccount();
-  const snapshotMap = new Map(
-    (lastAccountSnapshot.holdings || []).map((holding) => [holding.symbol, holding])
-  );
+  const portfolio = getSelectedPortfolio();
+  const aggregatedHoldings = buildAggregatedPortfolioHoldings(portfolio);
 
-  if (!selectedAccount.holdings.length) {
+  if (!aggregatedHoldings.length) {
     elements.holdingsTable.innerHTML =
-      `<tr><td colspan="12" class="empty-state">No holdings yet in ${selectedAccount.name}. Add a stock or mutual fund from the form on the left.</td></tr>`;
+      '<tr><td colspan="12" class="empty-state">No holdings yet in this portfolio. Add holdings from any account on the left.</td></tr>';
     return;
   }
 
-  elements.holdingsTable.innerHTML = selectedAccount.holdings
+  elements.holdingsTable.innerHTML = aggregatedHoldings
     .map((holding) => {
-      const live = snapshotMap.get(holding.symbol.toUpperCase());
+      const live = holding.live;
       const returnClass =
         (live?.totalReturn || 0) >= 0 ? "positive" : "negative";
       const yieldText = live ? formatPercent(live.dividendYield) : "-";
@@ -1132,15 +1228,13 @@ function renderHoldings() {
         live?.expenseRatio != null ? formatPercent(live.expenseRatio) : "-";
 
       return `
-        <tr class="holding-row" data-holding-symbol="${holding.symbol.toUpperCase()}" draggable="true">
+        <tr class="holding-row" data-holding-symbol="${holding.symbol.toUpperCase()}">
           <td data-label="Holding">
             <div class="holding-primary">
-              <button class="drag-handle" type="button" tabindex="-1" aria-hidden="true" title="Drag to reorder">
-                <span></span><span></span><span></span>
-              </button>
               <div>
                 <div class="holding-symbol">${holding.symbol.toUpperCase()}</div>
                 <div class="holding-name">${live?.name || holding.notes || "Waiting for live quote"}</div>
+                <div class="holding-name">Held in ${holding.accountCount} account${holding.accountCount === 1 ? "" : "s"}: ${holding.accountNames.join(", ")}</div>
                 <div class="chip">${live?.quoteType || "Holding"}</div>
               </div>
             </div>
@@ -1170,87 +1264,12 @@ function renderHoldings() {
           <td data-label="Expense Ratio">${expenseRatioText}</td>
           <td data-label="Annual Income">${live ? formatCurrency(live.annualDividendIncome, live.currency) : "-"}</td>
           <td data-label="Actions">
-            <div class="table-actions">
-              <button class="table-action edit-action" type="button" data-edit-symbol="${holding.symbol.toUpperCase()}">Edit</button>
-              <button class="table-action remove-action" type="button" data-remove-symbol="${holding.symbol.toUpperCase()}">Remove</button>
-            </div>
+            <div class="holding-name">Manage within accounts</div>
           </td>
         </tr>
       `;
     })
     .join("");
-
-  elements.holdingsTable
-    .querySelectorAll("[data-edit-symbol]")
-    .forEach((button) => {
-      button.addEventListener("click", () => startEditingHolding(button.dataset.editSymbol));
-    });
-
-  elements.holdingsTable
-    .querySelectorAll("[data-remove-symbol]")
-    .forEach((button) => {
-      button.addEventListener("click", () => removeHolding(button.dataset.removeSymbol));
-    });
-
-  elements.holdingsTable.querySelectorAll(".holding-row").forEach((row) => {
-    row.addEventListener("dragstart", (event) => {
-      draggedHoldingSymbol = row.dataset.holdingSymbol;
-      if (event.dataTransfer) {
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", draggedHoldingSymbol);
-      }
-      row.classList.add("dragging");
-    });
-
-    row.addEventListener("dragend", () => {
-      draggedHoldingSymbol = null;
-      elements.holdingsTable
-        .querySelectorAll(".holding-row")
-        .forEach((holdingRow) => {
-          holdingRow.classList.remove("dragging", "drag-target-before", "drag-target-after");
-        });
-    });
-
-    row.addEventListener("dragover", (event) => {
-      if (!draggedHoldingSymbol || draggedHoldingSymbol === row.dataset.holdingSymbol) {
-        return;
-      }
-
-      event.preventDefault();
-      const bounds = row.getBoundingClientRect();
-      const insertAfter = event.clientY > bounds.top + bounds.height / 2;
-
-      elements.holdingsTable
-        .querySelectorAll(".holding-row")
-        .forEach((holdingRow) => {
-          if (holdingRow !== row) {
-            holdingRow.classList.remove("drag-target-before", "drag-target-after");
-          }
-        });
-
-      row.classList.toggle("drag-target-before", !insertAfter);
-      row.classList.toggle("drag-target-after", insertAfter);
-    });
-
-    row.addEventListener("dragleave", (event) => {
-      if (!row.contains(event.relatedTarget)) {
-        row.classList.remove("drag-target-before", "drag-target-after");
-      }
-    });
-
-    row.addEventListener("drop", (event) => {
-      if (!draggedHoldingSymbol || draggedHoldingSymbol === row.dataset.holdingSymbol) {
-        return;
-      }
-
-      event.preventDefault();
-      const bounds = row.getBoundingClientRect();
-      const insertAfter = event.clientY > bounds.top + bounds.height / 2;
-      reorderHoldings(draggedHoldingSymbol, row.dataset.holdingSymbol, insertAfter);
-      render();
-      refreshSnapshot();
-    });
-  });
 }
 
 function render() {
