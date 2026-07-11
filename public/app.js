@@ -510,9 +510,9 @@ function renderPortfolios() {
     fragment.querySelector(".portfolio-item-count").textContent =
       `${portfolio.accounts.length} accounts - ${holdingCount} holdings`;
     button.addEventListener("click", () => {
+      state.selectedPortfolioId = portfolio.id;
       resetHoldingForm();
       setHoldingFormOpen(false);
-      state.selectedPortfolioId = portfolio.id;
       resetPortfolioSnapshots();
       saveState();
       render();
@@ -601,9 +601,9 @@ function renderAccounts() {
         return;
       }
 
+      selectedPortfolio.selectedAccountId = account.id;
       resetHoldingForm();
       setHoldingFormOpen(false);
-      selectedPortfolio.selectedAccountId = account.id;
       lastAccountSnapshot = lastAccountSnapshotsById[account.id] || createEmptySnapshot();
       saveState();
       render();
@@ -1106,12 +1106,13 @@ function buildAggregatedPortfolioHoldings(portfolio) {
 
 function syncHoldingFormVisibility() {
   const account = getSelectedAccount();
+  const accountName = account?.name || "Selected Account";
   elements.holdingForm.classList.toggle("hidden", !isHoldingFormOpen);
   elements.toggleHoldingFormBtn.setAttribute("aria-expanded", String(isHoldingFormOpen));
   elements.toggleHoldingFormBtn.textContent = isHoldingFormOpen ? "Hide" : "Show";
   elements.holdingFormTitle.textContent = editingHoldingSymbol
-    ? `Edit Holding in ${account.name}`
-    : `Add Holding to ${account.name}`;
+    ? `Edit Holding in ${accountName}`
+    : `Add Holding to ${accountName}`;
   elements.saveHoldingBtn.textContent = editingHoldingSymbol
     ? "Update Holding"
     : "Save Holding";
@@ -1288,6 +1289,8 @@ function render() {
     }
   }
 
+  syncHoldingFormVisibility();
+
   renderPortfolios();
   renderAccounts();
   renderAccountsOverview();
@@ -1436,10 +1439,10 @@ function deleteSelectedAccount() {
     return;
   }
 
-  resetHoldingForm();
-  setHoldingFormOpen(false);
   portfolio.accounts = portfolio.accounts.filter((item) => item.id !== account.id);
   portfolio.selectedAccountId = portfolio.accounts[0].id;
+  resetHoldingForm();
+  setHoldingFormOpen(false);
   saveState();
   resetPortfolioSnapshots();
   render();
