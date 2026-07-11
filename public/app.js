@@ -603,7 +603,6 @@ function renderAccounts() {
 
       selectedPortfolio.selectedAccountId = account.id;
       resetHoldingForm();
-      setHoldingFormOpen(false);
       lastAccountSnapshot = lastAccountSnapshotsById[account.id] || createEmptySnapshot();
       saveState();
       render();
