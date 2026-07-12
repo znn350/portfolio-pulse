@@ -1271,6 +1271,13 @@ async function authFetch(url, options = {}) {
 
 function renderHoldings() {
   const portfolio = getSelectedPortfolio();
+  const selectedAccount = getSelectedAccount(portfolio);
+  const selectedAccountHoldingSymbols = new Map(
+    selectedAccount.holdings.map((holding) => [
+      holding.symbol.toUpperCase(),
+      holding,
+    ])
+  );
   const aggregatedHoldings = buildAggregatedPortfolioHoldings(portfolio);
 
   if (!aggregatedHoldings.length) {
@@ -1282,6 +1289,9 @@ function renderHoldings() {
   elements.holdingsTable.innerHTML = aggregatedHoldings
     .map((holding) => {
       const live = holding.live;
+      const selectedAccountHolding = selectedAccountHoldingSymbols.get(
+        holding.symbol.toUpperCase()
+      );
       const returnClass =
         (live?.totalReturn || 0) >= 0 ? "positive" : "negative";
       const yieldText = live ? formatPercent(live.dividendYield) : "-";
@@ -1326,12 +1336,37 @@ function renderHoldings() {
           <td data-label="Expense Ratio">${expenseRatioText}</td>
           <td data-label="Annual Income">${live ? formatCurrency(live.annualDividendIncome, live.currency) : "-"}</td>
           <td data-label="Actions">
-            <div class="holding-name">Manage within accounts</div>
+            ${
+              selectedAccountHolding
+                ? `
+                  <div class="table-actions">
+                    <button class="table-action edit-action" type="button" data-edit-symbol="${holding.symbol.toUpperCase()}">Edit in ${selectedAccount.name}</button>
+                    <button class="table-action remove-action" type="button" data-remove-symbol="${holding.symbol.toUpperCase()}">Remove from ${selectedAccount.name}</button>
+                  </div>
+                `
+                : `<div class="holding-name">Not held in ${selectedAccount.name}</div>`
+            }
           </td>
         </tr>
       `;
     })
     .join("");
+
+  elements.holdingsTable
+    .querySelectorAll("[data-edit-symbol]")
+    .forEach((button) => {
+      button.addEventListener("click", () => {
+        startEditingHolding(button.dataset.editSymbol);
+      });
+    });
+
+  elements.holdingsTable
+    .querySelectorAll("[data-remove-symbol]")
+    .forEach((button) => {
+      button.addEventListener("click", () => {
+        removeHolding(button.dataset.removeSymbol);
+      });
+    });
 }
 
 function render() {
