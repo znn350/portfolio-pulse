@@ -1058,6 +1058,8 @@ function renderSymbolPreview(quote) {
 
 function buildAggregatedPortfolioHoldings(portfolio) {
   const baseHoldingsBySymbol = new Map();
+  const portfolioMarketValue =
+    Number(lastPortfolioSnapshot.summary?.totalMarketValue) || 0;
 
   portfolio.accounts.forEach((account) => {
     account.holdings.forEach((holding) => {
@@ -1134,6 +1136,8 @@ function buildAggregatedPortfolioHoldings(portfolio) {
       notes: holding.notes[0] || "",
       accountNames: holding.accountNames,
       accountCount: holding.accountNames.length,
+      portfolioWeight:
+        portfolioMarketValue > 0 ? marketValue / portfolioMarketValue : null,
       live: live
         ? {
             ...live,
@@ -1308,6 +1312,7 @@ function renderHoldings() {
           </td>
           <td data-label="Shares">${Number(holding.shares).toLocaleString()}</td>
           <td data-label="Market Value">${live ? formatCurrency(live.marketValue, live.currency) : "-"}</td>
+          <td data-label="% of Portfolio">${formatPercent(holding.portfolioWeight)}</td>
           <td data-label="Total Return" class="${returnClass}">
             ${live ? formatCurrency(live.totalReturn, live.currency) : "-"}
           </td>
