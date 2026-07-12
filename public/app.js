@@ -88,6 +88,8 @@ const elements = {
   symbolInput: document.querySelector("#symbol-input"),
   symbolPreview: document.querySelector("#symbol-preview"),
   sharesInput: document.querySelector("#shares-input"),
+  costBasisInput: document.querySelector("#cost-basis-input"),
+  totalCostBasisInput: document.querySelector("#total-cost-basis-input"),
   shareCalculatorToggleBtn: document.querySelector("#share-calculator-toggle-btn"),
   shareCalculatorPanel: document.querySelector("#share-calculator-panel"),
   shareTotalAmountInput: document.querySelector("#share-total-amount-input"),
@@ -135,6 +137,7 @@ let currentTheme = "light";
 let quotePreviewRequestId = 0;
 let isShareCalculatorOpen = false;
 let currentQuotePreview = null;
+let lastCostBasisInputMode = "perShare";
 
 function getStoredTheme() {
   const savedTheme = localStorage.getItem(themeStorageKey);
@@ -944,6 +947,10 @@ function formatShareCount(value) {
   return Number(value.toFixed(4)).toString();
 }
 
+function formatBasisValue(value, fractionDigits = 4) {
+  return Number(value.toFixed(fractionDigits)).toString();
+}
+
 function syncShareCalculatorVisibility() {
   elements.shareCalculatorPanel.classList.toggle("hidden", !isShareCalculatorOpen);
   elements.shareCalculatorToggleBtn.setAttribute(
@@ -989,6 +996,50 @@ function syncSharesFromCalculatorTotal() {
       currentQuotePreview.currency
     )} per share = ${formatShareCount(calculatedShares)} shares.`
   );
+}
+
+function getNumericInputValue(input) {
+  const rawValue = String(input?.value || "").trim();
+  if (!rawValue) {
+    return null;
+  }
+
+  const numericValue = Number(rawValue);
+  return Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function syncCostBasisFieldsFromPerShare() {
+  const shares = getNumericInputValue(elements.sharesInput);
+  const perShareCostBasis = getNumericInputValue(elements.costBasisInput);
+
+  if (shares == null || shares <= 0 || perShareCostBasis == null) {
+    return;
+  }
+
+  elements.totalCostBasisInput.value = formatBasisValue(
+    shares * perShareCostBasis,
+    2
+  );
+}
+
+function syncCostBasisFieldsFromTotal() {
+  const shares = getNumericInputValue(elements.sharesInput);
+  const totalCostBasis = getNumericInputValue(elements.totalCostBasisInput);
+
+  if (shares == null || shares <= 0 || totalCostBasis == null) {
+    return;
+  }
+
+  elements.costBasisInput.value = formatBasisValue(totalCostBasis / shares);
+}
+
+function syncCostBasisFieldsFromLastEdited() {
+  if (lastCostBasisInputMode === "total") {
+    syncCostBasisFieldsFromTotal();
+    return;
+  }
+
+  syncCostBasisFieldsFromPerShare();
 }
 
 function renderSymbolPreview(quote) {
@@ -1138,6 +1189,7 @@ function resetHoldingForm() {
   editingHoldingAccountId = null;
   selectedSearchResult = null;
   currentQuotePreview = null;
+  lastCostBasisInputMode = "perShare";
   quotePreviewRequestId += 1;
   clearTimeout(quotePreviewTimer);
   elements.holdingForm.reset();
@@ -1171,8 +1223,13 @@ function startEditingHolding(symbol) {
   elements.holdingForm.elements.symbol.value = holding.symbol;
   elements.holdingForm.elements.shares.value = holding.shares;
   elements.holdingForm.elements.costBasis.value = holding.costBasis;
+  elements.totalCostBasisInput.value = formatBasisValue(
+    Number(holding.shares) * Number(holding.costBasis),
+    2
+  );
   elements.holdingForm.elements.purchaseDate.value = holding.purchaseDate || "";
   elements.holdingForm.elements.notes.value = holding.notes || "";
+  lastCostBasisInputMode = "perShare";
   elements.shareTotalAmountInput.value = "";
   setShareCalculatorStatus("Load a symbol price to calculate shares automatically.");
   setHoldingFormOpen(true);
@@ -1951,6 +2008,24 @@ elements.adminUserForm.addEventListener("submit", async (event) => {
 elements.holdingForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const formData = new FormData(event.currentTarget);
+  const shares = Number(formData.get("shares"));
+  const perShareCostBasisRaw = String(formData.get("costBasis") || "").trim();
+  const totalCostBasisRaw = String(formData.get("totalCostBasis") || "").trim();
+
+  if (!perShareCostBasisRaw && !totalCostBasisRaw) {
+    window.alert("Enter either cost basis per share or total cost basis.");
+    return;
+  }
+
+  let resolvedCostBasis = Number(perShareCostBasisRaw);
+  if (!perShareCostBasisRaw) {
+    if (!Number.isFinite(shares) || shares <= 0) {
+      window.alert("Enter shares before using total cost basis.");
+      return;
+    }
+
+    resolvedCostBasis = Number(totalCostBasisRaw) / shares;
+  }
 
   const didSave = upsertHolding({
     symbol: String(formData.get("symbol") || "").trim(),
@@ -1960,8 +2035,8 @@ elements.holdingForm.addEventListener("submit", async (event) => {
         String(formData.get("symbol") || "").trim().toUpperCase()
         ? selectedSearchResult.quoteType
         : "",
-    shares: Number(formData.get("shares")),
-    costBasis: Number(formData.get("costBasis")),
+    shares,
+    costBasis: resolvedCostBasis,
     purchaseDate: String(formData.get("purchaseDate") || ""),
     notes: String(formData.get("notes") || "").trim(),
   });
@@ -1999,6 +2074,16 @@ elements.shareTotalAmountInput.addEventListener("input", () => {
   syncSharesFromCalculatorTotal();
 });
 
+elements.costBasisInput.addEventListener("input", () => {
+  lastCostBasisInputMode = "perShare";
+  syncCostBasisFieldsFromPerShare();
+});
+
+elements.totalCostBasisInput.addEventListener("input", () => {
+  lastCostBasisInputMode = "total";
+  syncCostBasisFieldsFromTotal();
+});
+
 elements.symbolInput.addEventListener("input", (event) => {
   const symbol = String(event.target.value || "").trim();
 
@@ -2032,6 +2117,10 @@ elements.symbolInput.addEventListener("input", (event) => {
   searchTimer = setTimeout(() => {
     searchSymbols(symbol);
   }, 250);
+});
+
+elements.sharesInput.addEventListener("input", () => {
+  syncCostBasisFieldsFromLastEdited();
 });
 
 elements.refreshBtn.addEventListener("click", refreshAllSnapshots);
