@@ -931,6 +931,45 @@ th {
   color: var(--positive);
 }
 
+.sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.sort-button::after {
+  content: "↕";
+  color: var(--muted);
+  font-size: 0.78rem;
+  opacity: 0.55;
+}
+
+.sort-button[data-sort-direction="asc"]::after {
+  content: "↑";
+  color: var(--accent);
+  opacity: 1;
+}
+
+.sort-button[data-sort-direction="desc"]::after {
+  content: "↓";
+  color: var(--accent);
+  opacity: 1;
+}
+
+.sort-button:hover,
+.sort-button:focus-visible {
+  color: var(--text);
+}
+
 #day-return.negative,
 #day-return.negative .metric-primary,
 #day-return.negative .metric-secondary,

@@ -71,6 +71,7 @@ const elements = {
   accountsOverview: document.querySelector("#accounts-overview"),
   accountsOverviewMeta: document.querySelector("#accounts-overview-meta"),
   holdingsTable: document.querySelector("#holdings-table"),
+  holdingSortButtons: document.querySelectorAll("[data-sort-key]"),
   refreshedAt: document.querySelector("#refreshed-at"),
   totalValue: document.querySelector("#total-value"),
   dayReturn: document.querySelector("#day-return"),
@@ -138,6 +139,57 @@ let quotePreviewRequestId = 0;
 let isShareCalculatorOpen = false;
 let currentQuotePreview = null;
 let lastCostBasisInputMode = "perShare";
+let holdingsSort = { key: "holding", direction: "asc" };
+
+function getHoldingSortValue(holding, key) {
+  const values = {
+    holding: holding.symbol,
+    price: holding.live?.price,
+    dayChange: holding.live?.dayChange,
+    dayChangePercent: holding.live?.dayChangePercent,
+    shares: holding.shares,
+    marketValue: holding.live?.marketValue,
+    portfolioWeight: holding.portfolioWeight,
+    totalReturn: holding.live?.totalReturn,
+    totalReturnPercent: holding.live?.totalReturnPercent,
+    dividendYield: holding.live?.dividendYield,
+    expenseRatio: holding.live?.expenseRatio,
+    annualDividendIncome: holding.live?.annualDividendIncome,
+  };
+
+  return values[key];
+}
+
+function sortHoldings(holdings) {
+  const { key, direction } = holdingsSort;
+
+  return [...holdings].sort((left, right) => {
+    const leftValue = getHoldingSortValue(left, key);
+    const rightValue = getHoldingSortValue(right, key);
+    const leftMissing = leftValue == null || leftValue === "";
+    const rightMissing = rightValue == null || rightValue === "";
+
+    if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
+    if (leftMissing) return left.symbol.localeCompare(right.symbol);
+
+    const comparison =
+      typeof leftValue === "string"
+        ? leftValue.localeCompare(rightValue, undefined, { sensitivity: "base" })
+        : Number(leftValue) - Number(rightValue);
+
+    return (direction === "asc" ? comparison : -comparison) ||
+      left.symbol.localeCompare(right.symbol);
+  });
+}
+
+function syncHoldingSortHeaders() {
+  elements.holdingSortButtons.forEach((button) => {
+    const isActive = button.dataset.sortKey === holdingsSort.key;
+    const direction = isActive ? holdingsSort.direction : "none";
+    button.closest("th").setAttribute("aria-sort", direction === "asc" ? "ascending" : direction === "desc" ? "descending" : "none");
+    button.dataset.sortDirection = direction;
+  });
+}
 
 function getStoredTheme() {
   const savedTheme = localStorage.getItem(themeStorageKey);
@@ -1278,11 +1330,12 @@ function renderHoldings() {
       holding,
     ])
   );
-  const aggregatedHoldings = buildAggregatedPortfolioHoldings(portfolio);
+  const aggregatedHoldings = sortHoldings(buildAggregatedPortfolioHoldings(portfolio));
+  syncHoldingSortHeaders();
 
   if (!aggregatedHoldings.length) {
     elements.holdingsTable.innerHTML =
-      '<tr><td colspan="12" class="empty-state">No holdings yet in this portfolio. Add holdings from any account on the left.</td></tr>';
+      '<tr><td colspan="13" class="empty-state">No holdings yet in this portfolio. Add holdings from any account on the left.</td></tr>';
     return;
   }
 
@@ -2173,6 +2226,16 @@ elements.deleteAccountBtn.addEventListener("click", deleteSelectedAccount);
 elements.deletePortfolioBtn.addEventListener("click", deleteSelectedPortfolio);
 elements.toggleMarketOverviewBtn.addEventListener("click", toggleMarketOverview);
 elements.toggleHoldingFormBtn.addEventListener("click", toggleHoldingForm);
+elements.holdingSortButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const key = button.dataset.sortKey;
+    holdingsSort = {
+      key,
+      direction: holdingsSort.key === key && holdingsSort.direction === "asc" ? "desc" : "asc",
+    };
+    renderHoldings();
+  });
+});
 elements.cancelHoldingEditBtn.addEventListener("click", () => {
   resetHoldingForm();
   setHoldingFormOpen(false);
