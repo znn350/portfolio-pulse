@@ -34,6 +34,7 @@ const authSuccessMessages = {
 };
 
 const themeStorageKey = "portfolio-pulse-theme";
+const holdingsSortStorageKey = "portfolio-pulse-holdings-sort";
 
 const elements = {
   authShell: document.querySelector("#auth-shell"),
@@ -139,7 +140,37 @@ let quotePreviewRequestId = 0;
 let isShareCalculatorOpen = false;
 let currentQuotePreview = null;
 let lastCostBasisInputMode = "perShare";
-let holdingsSort = { key: "holding", direction: "asc" };
+let holdingsSort = getStoredHoldingsSort();
+
+function getStoredHoldingsSort() {
+  const defaultSort = { key: "holding", direction: "asc" };
+
+  try {
+    const savedSort = JSON.parse(localStorage.getItem(holdingsSortStorageKey));
+    const validKeys = new Set(
+      Array.from(elements.holdingSortButtons, (button) => button.dataset.sortKey)
+    );
+
+    if (
+      validKeys.has(savedSort?.key) &&
+      ["asc", "desc"].includes(savedSort?.direction)
+    ) {
+      return savedSort;
+    }
+  } catch (error) {
+    // Use the default if browser storage is unavailable or contains invalid JSON.
+  }
+
+  return defaultSort;
+}
+
+function saveHoldingsSort() {
+  try {
+    localStorage.setItem(holdingsSortStorageKey, JSON.stringify(holdingsSort));
+  } catch (error) {
+    // Sorting still works for this session when browser storage is unavailable.
+  }
+}
 
 function getHoldingSortValue(holding, key) {
   const values = {
@@ -2233,6 +2264,7 @@ elements.holdingSortButtons.forEach((button) => {
       key,
       direction: holdingsSort.key === key && holdingsSort.direction === "asc" ? "desc" : "asc",
     };
+    saveHoldingsSort();
     renderHoldings();
   });
 });
