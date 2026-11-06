@@ -589,7 +589,11 @@ function renderPortfolios() {
         : "-";
     const dayReturnText =
       typeof performance?.totalDayReturn === "number"
-        ? `${performance.totalDayReturn > 0 ? "+" : ""}${formatCurrency(performance.totalDayReturn)}`
+        ? `${performance.totalDayReturn > 0 ? "+" : ""}${formatCurrency(performance.totalDayReturn)}${
+            typeof performance.totalDayReturnPercent === "number"
+              ? ` (${formatSignedPercent(performance.totalDayReturnPercent)})`
+              : ""
+          }`
         : "-";
     fragment.querySelector(".portfolio-item-value").textContent = totalValueText;
     dayReturnElement.textContent = dayReturnText;
@@ -1551,6 +1555,10 @@ function cachePortfolioPerformance(portfolioId, snapshot) {
     totalDayReturn:
       typeof snapshot?.summary?.totalDayReturn === "number"
         ? snapshot.summary.totalDayReturn
+        : null,
+    totalDayReturnPercent:
+      typeof snapshot?.summary?.totalDayReturnPercent === "number"
+        ? snapshot.summary.totalDayReturnPercent
         : null,
   };
 }
