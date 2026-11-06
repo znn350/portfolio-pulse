@@ -59,6 +59,8 @@ const elements = {
   adminStatus: document.querySelector("#admin-status"),
   adminUsersList: document.querySelector("#admin-users-list"),
   portfolioList: document.querySelector("#portfolio-list"),
+  hiddenPortfolioSection: document.querySelector("#hidden-portfolio-section"),
+  hiddenPortfolioList: document.querySelector("#hidden-portfolio-list"),
   accountList: document.querySelector("#account-list"),
   portfolioName: document.querySelector("#portfolio-name"),
   portfolioMeta: document.querySelector("#portfolio-meta"),
@@ -319,6 +321,7 @@ function normalizePortfolio(portfolio, index) {
       String(portfolio?.name || `Portfolio ${index + 1}`).trim() ||
       `Portfolio ${index + 1}`,
     selectedAccountId,
+    hidden: Boolean(portfolio?.hidden),
     accounts,
   };
 }
@@ -329,11 +332,15 @@ function normalizeState(nextState) {
     : [];
   const safePortfolios =
     portfolios.length > 0 ? portfolios : structuredClone(defaultState.portfolios);
-  const selectedPortfolioId = safePortfolios.some(
+  if (safePortfolios.every((portfolio) => portfolio.hidden)) {
+    safePortfolios[0].hidden = false;
+  }
+  const visiblePortfolios = safePortfolios.filter((portfolio) => !portfolio.hidden);
+  const selectedPortfolioId = visiblePortfolios.some(
     (portfolio) => portfolio.id === nextState?.selectedPortfolioId
   )
     ? nextState.selectedPortfolioId
-    : safePortfolios[0].id;
+    : visiblePortfolios[0].id;
 
   return {
     selectedPortfolioId,
@@ -574,14 +581,19 @@ function renderPortfolios() {
   const selected = getSelectedPortfolio();
   elements.portfolioList.innerHTML = "";
 
-  state.portfolios.forEach((portfolio) => {
+  const visiblePortfolios = state.portfolios.filter((portfolio) => !portfolio.hidden);
+  const hiddenPortfolios = state.portfolios.filter((portfolio) => portfolio.hidden);
+
+  visiblePortfolios.forEach((portfolio) => {
     const fragment = elements.portfolioTemplate.content.cloneNode(true);
-    const button = fragment.querySelector(".portfolio-item");
+    const card = fragment.querySelector(".portfolio-item");
+    const button = fragment.querySelector(".portfolio-select-button");
+    const hideButton = fragment.querySelector(".portfolio-hide-button");
     const performance = portfolioPerformanceById[portfolio.id];
     const dayReturnElement = fragment.querySelector(".portfolio-item-day-return");
-    button.dataset.portfolioId = portfolio.id;
-    button.draggable = true;
-    button.classList.toggle("active", portfolio.id === selected.id);
+    card.dataset.portfolioId = portfolio.id;
+    card.draggable = true;
+    card.classList.toggle("active", portfolio.id === selected.id);
     fragment.querySelector(".portfolio-item-name").textContent = portfolio.name;
     const totalValueText =
       typeof performance?.totalMarketValue === "number"
@@ -608,6 +620,11 @@ function renderPortfolios() {
       "aria-label",
       `${portfolio.name}. Total value: ${totalValueText}. Day return: ${dayReturnText}.`
     );
+    hideButton.setAttribute("aria-label", `Hide ${portfolio.name}`);
+    hideButton.disabled = visiblePortfolios.length === 1;
+    if (hideButton.disabled) {
+      hideButton.title = "At least one portfolio must remain visible";
+    }
     button.addEventListener("click", () => {
       state.selectedPortfolioId = portfolio.id;
       resetHoldingForm();
@@ -618,16 +635,20 @@ function renderPortfolios() {
       refreshSnapshot();
     });
 
-    button.addEventListener("dragstart", (event) => {
+    hideButton.addEventListener("click", () => {
+      hidePortfolio(portfolio.id);
+    });
+
+    card.addEventListener("dragstart", (event) => {
       draggedPortfolioId = portfolio.id;
       if (event.dataTransfer) {
         event.dataTransfer.effectAllowed = "move";
         event.dataTransfer.setData("text/plain", draggedPortfolioId);
       }
-      button.classList.add("dragging");
+      card.classList.add("dragging");
     });
 
-    button.addEventListener("dragend", () => {
+    card.addEventListener("dragend", () => {
       draggedPortfolioId = null;
       elements.portfolioList
         .querySelectorAll(".portfolio-item")
@@ -640,46 +661,63 @@ function renderPortfolios() {
         });
     });
 
-    button.addEventListener("dragover", (event) => {
+    card.addEventListener("dragover", (event) => {
       if (!draggedPortfolioId || draggedPortfolioId === portfolio.id) {
         return;
       }
 
       event.preventDefault();
-      const bounds = button.getBoundingClientRect();
+      const bounds = card.getBoundingClientRect();
       const insertAfter = event.clientY > bounds.top + bounds.height / 2;
 
       elements.portfolioList
         .querySelectorAll(".portfolio-item")
         .forEach((portfolioItem) => {
-          if (portfolioItem !== button) {
+          if (portfolioItem !== card) {
             portfolioItem.classList.remove("drag-target-before", "drag-target-after");
           }
         });
 
-      button.classList.toggle("drag-target-before", !insertAfter);
-      button.classList.toggle("drag-target-after", insertAfter);
+      card.classList.toggle("drag-target-before", !insertAfter);
+      card.classList.toggle("drag-target-after", insertAfter);
     });
 
-    button.addEventListener("dragleave", (event) => {
-      if (!button.contains(event.relatedTarget)) {
-        button.classList.remove("drag-target-before", "drag-target-after");
+    card.addEventListener("dragleave", (event) => {
+      if (!card.contains(event.relatedTarget)) {
+        card.classList.remove("drag-target-before", "drag-target-after");
       }
     });
 
-    button.addEventListener("drop", (event) => {
+    card.addEventListener("drop", (event) => {
       if (!draggedPortfolioId || draggedPortfolioId === portfolio.id) {
         return;
       }
 
       event.preventDefault();
-      const bounds = button.getBoundingClientRect();
+      const bounds = card.getBoundingClientRect();
       const insertAfter = event.clientY > bounds.top + bounds.height / 2;
       reorderPortfolios(draggedPortfolioId, portfolio.id, insertAfter);
       render();
     });
 
     elements.portfolioList.appendChild(fragment);
+  });
+
+  elements.hiddenPortfolioList.innerHTML = "";
+  elements.hiddenPortfolioSection.classList.toggle("hidden", !hiddenPortfolios.length);
+  hiddenPortfolios.forEach((portfolio) => {
+    const item = document.createElement("div");
+    item.className = "hidden-portfolio-item";
+    const name = document.createElement("span");
+    name.textContent = portfolio.name;
+    const restoreButton = document.createElement("button");
+    restoreButton.className = "ghost-button";
+    restoreButton.type = "button";
+    restoreButton.textContent = "Restore";
+    restoreButton.setAttribute("aria-label", `Restore ${portfolio.name}`);
+    restoreButton.addEventListener("click", () => restorePortfolio(portfolio.id));
+    item.append(name, restoreButton);
+    elements.hiddenPortfolioList.appendChild(item);
   });
 }
 
@@ -798,10 +836,11 @@ function reorderHoldings(draggedSymbol, targetSymbol, insertAfter = false) {
 }
 
 function reorderPortfolios(draggedPortfolioIdValue, targetPortfolioId, insertAfter = false) {
-  const sourceIndex = state.portfolios.findIndex(
+  const visiblePortfolios = state.portfolios.filter((portfolio) => !portfolio.hidden);
+  const sourceIndex = visiblePortfolios.findIndex(
     (portfolio) => portfolio.id === draggedPortfolioIdValue
   );
-  const targetIndex = state.portfolios.findIndex(
+  const targetIndex = visiblePortfolios.findIndex(
     (portfolio) => portfolio.id === targetPortfolioId
   );
 
@@ -809,7 +848,7 @@ function reorderPortfolios(draggedPortfolioIdValue, targetPortfolioId, insertAft
     return;
   }
 
-  const [movedPortfolio] = state.portfolios.splice(sourceIndex, 1);
+  const [movedPortfolio] = visiblePortfolios.splice(sourceIndex, 1);
   let nextIndex = targetIndex;
 
   if (sourceIndex < targetIndex) {
@@ -820,8 +859,48 @@ function reorderPortfolios(draggedPortfolioIdValue, targetPortfolioId, insertAft
     nextIndex += 1;
   }
 
-  state.portfolios.splice(nextIndex, 0, movedPortfolio);
+  visiblePortfolios.splice(nextIndex, 0, movedPortfolio);
+  let visibleIndex = 0;
+  state.portfolios = state.portfolios.map((portfolio) =>
+    portfolio.hidden ? portfolio : visiblePortfolios[visibleIndex++]
+  );
   saveState();
+}
+
+function hidePortfolio(portfolioId) {
+  const portfolio = state.portfolios.find((item) => item.id === portfolioId);
+  const visiblePortfolios = state.portfolios.filter((item) => !item.hidden);
+  if (!portfolio || portfolio.hidden || visiblePortfolios.length <= 1) {
+    return;
+  }
+
+  const wasSelected = state.selectedPortfolioId === portfolio.id;
+  portfolio.hidden = true;
+  if (wasSelected) {
+    state.selectedPortfolioId = visiblePortfolios.find(
+      (item) => item.id !== portfolio.id
+    ).id;
+    resetHoldingForm();
+    setHoldingFormOpen(false);
+    resetPortfolioSnapshots();
+  }
+
+  saveState();
+  render();
+  if (wasSelected) {
+    refreshSnapshot();
+  }
+}
+
+function restorePortfolio(portfolioId) {
+  const portfolio = state.portfolios.find((item) => item.id === portfolioId);
+  if (!portfolio || !portfolio.hidden) {
+    return;
+  }
+
+  portfolio.hidden = false;
+  saveState();
+  render();
 }
 
 function renderAdminUsers() {
@@ -1572,6 +1651,7 @@ function addPortfolio() {
   const portfolio = {
     id: makeId(),
     name: name.trim(),
+    hidden: false,
     selectedAccountId: "account-1",
     accounts: [
       {
@@ -1668,6 +1748,7 @@ function duplicateSelectedPortfolio() {
   const duplicatePortfolio = {
     id: makeId(),
     name: duplicateName,
+    hidden: false,
     accounts: selected.accounts.map((account) => ({
       id: makeId(),
       name: account.name,
@@ -1715,8 +1796,8 @@ function renameSelectedPortfolio() {
 }
 
 function deleteSelectedPortfolio() {
-  if (state.portfolios.length === 1) {
-    window.alert("Keep at least one portfolio available.");
+  if (state.portfolios.filter((portfolio) => !portfolio.hidden).length === 1) {
+    window.alert("Keep at least one visible portfolio available.");
     return;
   }
 

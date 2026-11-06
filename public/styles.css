@@ -318,6 +318,32 @@ textarea {
   margin-top: 14px;
 }
 
+.hidden-portfolio-section {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.hidden-portfolio-section h3 {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.hidden-portfolio-list {
+  display: grid;
+  gap: 8px;
+}
+
+.hidden-portfolio-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .account-list {
   display: grid;
   gap: 10px;
@@ -336,6 +362,7 @@ textarea {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   transition:
     transform 0.18s ease,
     border-color 0.18s ease,
@@ -343,6 +370,52 @@ textarea {
     color 0.18s ease,
     box-shadow 0.18s ease;
   cursor: grab;
+}
+
+.portfolio-select-button {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  border-radius: 12px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  text-align: left;
+  gap: 8px;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.portfolio-select-button:focus-visible,
+.portfolio-hide-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.portfolio-hide-button {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  font-size: 0.82rem;
+}
+
+.portfolio-hide-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.portfolio-item.active .portfolio-select-button {
+  color: #fffdf9;
+}
+
+.portfolio-item.active .portfolio-hide-button {
+  border-color: rgba(255, 253, 249, 0.35);
+  background: rgba(255, 253, 249, 0.12);
+  color: #fffdf9;
+}
+
+.portfolio-item.active .portfolio-hide-button:hover {
+  background: rgba(255, 253, 249, 0.2);
 }
 
 .portfolio-item:hover {
@@ -424,6 +497,10 @@ textarea {
 
 .portfolio-item.drag-target-after::after {
   bottom: -2px;
+}
+
+.portfolio-item .portfolio-drag-handle {
+  pointer-events: none;
 }
 
 .portfolio-drag-handle {

@@ -235,6 +235,7 @@ function sanitizePortfolio(portfolio, index) {
       String(portfolio?.name || `Portfolio ${index + 1}`).trim() ||
       `Portfolio ${index + 1}`,
     selectedAccountId,
+    hidden: Boolean(portfolio?.hidden),
     accounts,
   };
 }
@@ -248,11 +249,15 @@ function sanitizeAppState(state) {
 
   const safePortfolios =
     portfolios.length > 0 ? portfolios : structuredClone(defaultAppState.portfolios);
-  const selectedPortfolioId = safePortfolios.some(
+  if (safePortfolios.every((portfolio) => portfolio.hidden)) {
+    safePortfolios[0].hidden = false;
+  }
+  const visiblePortfolios = safePortfolios.filter((portfolio) => !portfolio.hidden);
+  const selectedPortfolioId = visiblePortfolios.some(
     (portfolio) => portfolio.id === state?.selectedPortfolioId
   )
     ? state.selectedPortfolioId
-    : safePortfolios[0].id;
+    : visiblePortfolios[0].id;
 
   return {
     selectedPortfolioId,

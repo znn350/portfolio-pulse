@@ -78,6 +78,10 @@
               </button>
             </div>
             <div id="portfolio-list" class="portfolio-list"></div>
+            <section id="hidden-portfolio-section" class="hidden-portfolio-section hidden">
+              <h3>Hidden portfolios</h3>
+              <div id="hidden-portfolio-list" class="hidden-portfolio-list"></div>
+            </section>
           </section>
 
           <section class="panel">
@@ -363,18 +367,21 @@
     </div>
 
     <template id="portfolio-item-template">
-      <button type="button" class="portfolio-item">
-        <span class="portfolio-drag-handle" aria-hidden="true" title="Drag to reorder">
-          <span></span><span></span><span></span>
-        </span>
-        <span class="portfolio-item-primary">
-          <span class="portfolio-item-name"></span>
-        </span>
-        <span class="portfolio-item-stats">
-          <span class="portfolio-item-value">-</span>
-          <span class="portfolio-item-day-return">-</span>
-        </span>
-      </button>
+      <article class="portfolio-item">
+        <button class="portfolio-select-button" type="button">
+          <span class="portfolio-drag-handle" aria-hidden="true" title="Drag to reorder">
+            <span></span><span></span><span></span>
+          </span>
+          <span class="portfolio-item-primary">
+            <span class="portfolio-item-name"></span>
+          </span>
+          <span class="portfolio-item-stats">
+            <span class="portfolio-item-value">-</span>
+            <span class="portfolio-item-day-return">-</span>
+          </span>
+        </button>
+        <button class="portfolio-hide-button ghost-button" type="button">Hide</button>
+      </article>
     </template>
 
     <template id="account-item-template">

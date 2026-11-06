@@ -143,6 +143,35 @@ const tests = [
       assert.equal(state.portfolios[0].accounts.length, 2);
     },
   },
+  {
+    name: "sanitizeAppState preserves hidden portfolios and selects a visible portfolio",
+    run() {
+      const state = sanitizeAppState({
+        selectedPortfolioId: "hidden",
+        portfolios: [
+          { id: "hidden", name: "Hidden", hidden: true, accounts: [] },
+          { id: "visible", name: "Visible", accounts: [] },
+        ],
+      });
+
+      assert.equal(state.portfolios[0].hidden, true);
+      assert.equal(state.selectedPortfolioId, "visible");
+    },
+  },
+  {
+    name: "sanitizeAppState keeps at least one portfolio visible",
+    run() {
+      const state = sanitizeAppState({
+        selectedPortfolioId: "hidden",
+        portfolios: [
+          { id: "hidden", name: "Hidden", hidden: true, accounts: [] },
+        ],
+      });
+
+      assert.equal(state.portfolios[0].hidden, false);
+      assert.equal(state.selectedPortfolioId, "hidden");
+    },
+  },
 ];
 
 let failed = 0;
