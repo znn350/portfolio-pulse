@@ -583,14 +583,16 @@ function renderPortfolios() {
     button.draggable = true;
     button.classList.toggle("active", portfolio.id === selected.id);
     fragment.querySelector(".portfolio-item-name").textContent = portfolio.name;
-    fragment.querySelector(".portfolio-item-value").textContent =
+    const totalValueText =
       typeof performance?.totalMarketValue === "number"
-        ? `Total Value: ${formatCurrency(performance.totalMarketValue)}`
-        : "Total Value: -";
-    dayReturnElement.textContent =
+        ? formatCurrency(performance.totalMarketValue)
+        : "-";
+    const dayReturnText =
       typeof performance?.totalDayReturn === "number"
-        ? `Day Return: ${performance.totalDayReturn > 0 ? "+" : ""}${formatCurrency(performance.totalDayReturn)}`
-        : "Day Return: -";
+        ? `${performance.totalDayReturn > 0 ? "+" : ""}${formatCurrency(performance.totalDayReturn)}`
+        : "-";
+    fragment.querySelector(".portfolio-item-value").textContent = totalValueText;
+    dayReturnElement.textContent = dayReturnText;
     dayReturnElement.className = `portfolio-item-day-return${
       typeof performance?.totalDayReturn === "number"
         ? performance.totalDayReturn >= 0
@@ -598,6 +600,10 @@ function renderPortfolios() {
           : " negative"
         : ""
     }`;
+    button.setAttribute(
+      "aria-label",
+      `${portfolio.name}. Total value: ${totalValueText}. Day return: ${dayReturnText}.`
+    );
     button.addEventListener("click", () => {
       state.selectedPortfolioId = portfolio.id;
       resetHoldingForm();

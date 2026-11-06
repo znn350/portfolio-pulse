@@ -377,8 +377,15 @@ textarea {
 
 .portfolio-item-value,
 .portfolio-item-day-return {
-  font-size: 0.85rem;
   font-weight: 600;
+}
+
+.portfolio-item-value {
+  font-size: 1.05rem;
+}
+
+.portfolio-item-day-return {
+  font-size: 0.85rem;
 }
 
 .portfolio-item-day-return.positive {
