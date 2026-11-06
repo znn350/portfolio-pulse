@@ -180,6 +180,7 @@ function getHoldingSortValue(holding, key) {
     dayChangePercent: holding.live?.dayChangePercent,
     shares: holding.shares,
     marketValue: holding.live?.marketValue,
+    totalCost: holding.totalCost,
     portfolioWeight: holding.portfolioWeight,
     totalReturn: holding.live?.totalReturn,
     totalReturnPercent: holding.live?.totalReturnPercent,
@@ -1215,6 +1216,7 @@ function buildAggregatedPortfolioHoldings(portfolio) {
     return {
       symbol: holding.symbol,
       shares: holding.shares,
+      totalCost,
       costBasis: holding.shares > 0 ? totalCost / holding.shares : 0,
       notes: holding.notes[0] || "",
       accountNames: holding.accountNames,
@@ -1366,7 +1368,7 @@ function renderHoldings() {
 
   if (!aggregatedHoldings.length) {
     elements.holdingsTable.innerHTML =
-      '<tr><td colspan="13" class="empty-state">No holdings yet in this portfolio. Add holdings from any account on the left.</td></tr>';
+      '<tr><td colspan="14" class="empty-state">No holdings yet in this portfolio. Add holdings from any account on the left.</td></tr>';
     return;
   }
 
@@ -1406,6 +1408,7 @@ function renderHoldings() {
           </td>
           <td data-label="Shares">${Number(holding.shares).toLocaleString()}</td>
           <td data-label="Market Value">${live ? formatCurrency(live.marketValue, live.currency) : "-"}</td>
+          <td data-label="Total Cost Basis">${formatCurrency(holding.totalCost, live?.currency)}</td>
           <td data-label="% of Portfolio">${formatPercent(holding.portfolioWeight)}</td>
           <td data-label="Total Return" class="${returnClass}">
             ${live ? formatCurrency(live.totalReturn, live.currency) : "-"}
