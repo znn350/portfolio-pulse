@@ -578,25 +578,26 @@ function renderPortfolios() {
     const fragment = elements.portfolioTemplate.content.cloneNode(true);
     const button = fragment.querySelector(".portfolio-item");
     const performance = portfolioPerformanceById[portfolio.id];
-    const performanceElement = fragment.querySelector(".portfolio-item-performance");
+    const dayReturnElement = fragment.querySelector(".portfolio-item-day-return");
     button.dataset.portfolioId = portfolio.id;
     button.draggable = true;
     button.classList.toggle("active", portfolio.id === selected.id);
     fragment.querySelector(".portfolio-item-name").textContent = portfolio.name;
-    performanceElement.textContent =
-      typeof performance?.totalDayReturnPercent === "number"
-        ? formatSignedPercent(performance.totalDayReturnPercent)
-        : "-";
-    performanceElement.className = `portfolio-item-performance${
-      typeof performance?.totalDayReturnPercent === "number"
-        ? performance.totalDayReturnPercent >= 0
+    fragment.querySelector(".portfolio-item-value").textContent =
+      typeof performance?.totalMarketValue === "number"
+        ? `Total Value: ${formatCurrency(performance.totalMarketValue)}`
+        : "Total Value: -";
+    dayReturnElement.textContent =
+      typeof performance?.totalDayReturn === "number"
+        ? `Day Return: ${performance.totalDayReturn > 0 ? "+" : ""}${formatCurrency(performance.totalDayReturn)}`
+        : "Day Return: -";
+    dayReturnElement.className = `portfolio-item-day-return${
+      typeof performance?.totalDayReturn === "number"
+        ? performance.totalDayReturn >= 0
           ? " positive"
           : " negative"
         : ""
     }`;
-    const holdingCount = getAllPortfolioHoldings(portfolio).length;
-    fragment.querySelector(".portfolio-item-count").textContent =
-      `${portfolio.accounts.length} accounts - ${holdingCount} holdings`;
     button.addEventListener("click", () => {
       state.selectedPortfolioId = portfolio.id;
       resetHoldingForm();
@@ -1534,9 +1535,13 @@ async function fetchPortfolioSnapshot(holdings) {
 
 function cachePortfolioPerformance(portfolioId, snapshot) {
   portfolioPerformanceById[portfolioId] = {
-    totalDayReturnPercent:
-      typeof snapshot?.summary?.totalDayReturnPercent === "number"
-        ? snapshot.summary.totalDayReturnPercent
+    totalMarketValue:
+      typeof snapshot?.summary?.totalMarketValue === "number"
+        ? snapshot.summary.totalMarketValue
+        : null,
+    totalDayReturn:
+      typeof snapshot?.summary?.totalDayReturn === "number"
+        ? snapshot.summary.totalDayReturn
         : null,
   };
 }
@@ -1564,7 +1569,10 @@ function addPortfolio() {
   setHoldingFormOpen(false);
   state.portfolios.push(portfolio);
   state.selectedPortfolioId = portfolio.id;
-  portfolioPerformanceById[portfolio.id] = { totalDayReturnPercent: null };
+  portfolioPerformanceById[portfolio.id] = {
+    totalMarketValue: null,
+    totalDayReturn: null,
+  };
   saveState();
   resetPortfolioSnapshots();
   render();
@@ -1656,7 +1664,10 @@ function duplicateSelectedPortfolio() {
   setHoldingFormOpen(false);
   state.portfolios.push(duplicatePortfolio);
   state.selectedPortfolioId = duplicatePortfolio.id;
-  portfolioPerformanceById[duplicatePortfolio.id] = { totalDayReturnPercent: null };
+  portfolioPerformanceById[duplicatePortfolio.id] = {
+    totalMarketValue: null,
+    totalDayReturn: null,
+  };
   saveState();
   resetPortfolioSnapshots();
   render();
