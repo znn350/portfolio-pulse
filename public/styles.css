@@ -1017,15 +1017,37 @@ th {
 }
 
 .table-action {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
   border: none;
+  border-radius: 10px;
   background: transparent;
   cursor: pointer;
-  padding: 0;
+  padding: 8px;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+
+.table-action:hover,
+.table-action:focus-visible {
+  background: var(--ghost-bg);
+  transform: translateY(-1px);
+}
+
+.table-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.table-action svg {
+  width: 18px;
+  height: 18px;
 }
 
 .table-actions {
   display: flex;
-  gap: 12px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 

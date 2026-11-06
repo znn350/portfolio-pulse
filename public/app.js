@@ -1399,7 +1399,6 @@ function renderHoldings() {
               <div>
                 <div class="holding-symbol">${holding.symbol.toUpperCase()}</div>
                 <div class="holding-name">${live?.name || holding.notes || "Waiting for live quote"}</div>
-                <div class="holding-name">Held in ${holding.accountCount} account${holding.accountCount === 1 ? "" : "s"}: ${holding.accountNames.join(", ")}</div>
                 <div class="chip">${live?.quoteType || "Holding"}</div>
               </div>
             </div>
@@ -1436,11 +1435,15 @@ function renderHoldings() {
               selectedAccountHolding
                 ? `
                   <div class="table-actions">
-                    <button class="table-action edit-action" type="button" data-edit-symbol="${holding.symbol.toUpperCase()}">Edit in ${selectedAccount.name}</button>
-                    <button class="table-action remove-action" type="button" data-remove-symbol="${holding.symbol.toUpperCase()}">Remove from ${selectedAccount.name}</button>
+                    <button class="table-action edit-action" type="button" data-edit-symbol="${holding.symbol.toUpperCase()}" aria-label="Edit ${holding.symbol.toUpperCase()} in ${selectedAccount.name}" title="Edit in ${selectedAccount.name}">
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+                    </button>
+                    <button class="table-action remove-action" type="button" data-remove-symbol="${holding.symbol.toUpperCase()}" aria-label="Remove ${holding.symbol.toUpperCase()} from ${selectedAccount.name}" title="Remove from ${selectedAccount.name}">
+                      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
+                    </button>
                   </div>
                 `
-                : `<div class="holding-name">Not held in ${selectedAccount.name}</div>`
+                : ""
             }
           </td>
         </tr>
